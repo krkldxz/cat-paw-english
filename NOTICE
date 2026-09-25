@@ -1,0 +1,25 @@
+英语背诵与学习软件 (cat paw)
+Copyright 2026 康容恺 (Kang Rongkai)
+
+本产品包含在「英语背诵与学习软件」项目中开发的软件，
+依 Apache License, Version 2.0 授权（全文见 LICENSE）。
+
+This product includes software developed as part of the
+"英语背诵与学习软件" (cat paw) project, licensed under the
+Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------
+本产品使用了以下第三方组件，各自许可见 THIRD_PARTY_NOTICES.md：
+
+  · Gemma 4 E2B 模型 (google/gemma-4-E2B-it)      — Apache License 2.0
+  · llama.cpp                                     — MIT License
+  · PaddleOCR / PaddleX ONNX 模型 (PP-OCRv3/v5)   — Apache License 2.0
+  · RapidOCR                                      — Apache License 2.0
+  · ECDICT (skywind3000)                          — MIT License
+  · moread-content (tealun) 词表                  — MIT License
+  · Words-CEFR-Dataset (Maximax67)                — MIT License
+  · Lucide 图标                                   — ISC License
+
+模型中「上海高考考纲词汇」相关数据未随本项目分发（版权原因），
+软件提供「导入自有词书」功能由用户自行构建。
+------------------------------------------------------------------------

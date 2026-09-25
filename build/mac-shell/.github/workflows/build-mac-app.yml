@@ -1,0 +1,56 @@
+name: build-mac-app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['Sources/**', 'Info.plist', 'AppIcon.iconset/**', '.github/**']
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build icon
+        run: |
+          iconutil -c icns AppIcon.iconset -o AppIcon.icns
+          mkdir -p stage
+          mv AppIcon.icns stage/
+
+      - name: Compile universal binary
+        run: |
+          set -e
+          xcrun swiftc -O -target arm64-apple-macos12 Sources/main.swift -o stage/EnglishStudyApp-arm64
+          xcrun swiftc -O -target x86_64-apple-macos12 Sources/main.swift -o stage/EnglishStudyApp-x64
+          lipo -create stage/EnglishStudyApp-arm64 stage/EnglishStudyApp-x64 -output stage/EnglishStudyApp
+          rm stage/EnglishStudyApp-arm64 stage/EnglishStudyApp-x64
+          file stage/EnglishStudyApp
+
+      - name: Assemble .app bundle
+        run: |
+          set -e
+          APP="英语背诵工具.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp stage/EnglishStudyApp "$APP/Contents/MacOS/"
+          cp stage/AppIcon.icns "$APP/Contents/Resources/"
+          cp Info.plist "$APP/Contents/"
+          printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+      - name: Ad-hoc sign
+        run: |
+          codesign --force --deep -s - "英语背诵工具.app/Contents/MacOS/EnglishStudyApp"
+          codesign --force --deep -s - "英语背诵工具.app"
+          spctl -a -vv "英语背诵工具.app" 2>&1 || true
+
+      - name: Zip artifact
+        run: |
+          set -e
+          # 若仓库附带整包资源目录(可选), 把壳塞进完整成品; 否则只发布裸壳
+          ditto -c -k --keepParent "英语背诵工具.app" EnglishStudyApp-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EnglishStudyApp-mac
+          path: EnglishStudyApp-mac.zip
+          if-no-files-found: ignore

@@ -1,0 +1,76 @@
+# ================= 英语背诵与学习软件 (cat paw) =================
+# 原则: 代码与可复现的构建脚本进仓库; 大模型权重/打包产物/一次性脚本/含版权的词书数据不进
+
+# ---- 模型权重 (3.9GB): 用 tools/fetch-models 脚本拉 ----
+models/*.gguf
+models/*.bin
+# 例外: OCR 小模型 (~30MB, Apache-2.0) 随仓库走, 让 clone 即有 OCR 能力
+!models/ocr-ppv3/*.onnx
+
+# ---- 推理引擎 (llama.cpp CUDA, 1.3GB): 用脚本拉 ----
+app/llama/
+
+# ---- 打包产物 / 运行时 ----
+build/dist/
+build/win分卷/
+build/双平台分卷/
+build/wv2/
+build/wv2.zip
+build/dl/
+build/*.exe
+build/英语背诵工具-一体化版.zip
+# Mac 壳里的整包副本 (含上海考纲词书等数据, 绝不入库)
+build/mac-shell/bundle/
+build/**/bundle/
+runtime/
+dist/
+*.zip
+
+# ---- 数据: 含第三方版权的词书原件与原始大数据 ----
+#     上海考纲 PDF 与全量词表不进仓库 (版权), 用本地导入功能自行构建
+data/上海高考词汇手册.pdf
+data/词书-上海高考.json
+data/raw/
+data/books/
+data/cefr_raw.csv
+
+# ---- 一次性脚本 (本地留档, 不进仓库) ----
+scripts/_archive/
+scripts/__pycache__/
+scripts/_tools/
+# vendored 第三方图标库 (含 6MB tgz, 用 npm 拉 lucide 即可)
+scripts/lucide/
+*.tgz
+
+# ---- 备份与临时文件 ----
+*.bak
+*.bak.*
+*.pre*.bak
+*.preC.bak
+*.tmp
+*.log
+tmp/
+tmp_*.txt
+nul
+
+# ---- 凭据 (绝不入库) ----
+.token
+*.token
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+
+# ---- 系统 / 依赖 ----
+node_modules/
+__pycache__/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 学习/调试产物 ----
+*.mp3
+*.wav
+ocr_test.png*
+_hook_check.json

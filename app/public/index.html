@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 英语学习舱</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-wrap">
+  <div id="accOverlay" class="acc-overlay hidden">
+    <div id="chatBooks" class="chat-books">
+      <div class="dpage-bar"><button id="cbBack" class="ghost">← 返回</button><span class="chat-title">对话积累</span></div>
+      <div class="mb-tabs" id="cbTabs"></div>
+      <div id="cbList" class="mb-list"></div>
+    </div>
+  </div>
+  <button id="nestBtn" class="nest-btn" title="猫窝：词书 · 错题本 · 作文集"><i class="ic" data-ic="cat"></i>猫窝</button>
+  <div id="nestPop" class="nest-pop hidden"></div>
+  <!-- 词书侧栏 (可随时开, 推开式不挡操作) -->
+  <aside id="bookSide" class="book-side">
+    <div class="side-head">
+      <b><i class="ic" data-ic="library"></i>词书</b>
+      <button id="sideClose" class="side-x" title="收起">×</button>
+    </div>
+    <div class="side-pick">
+      <div class="pick-title">参与本次识别（选 1-3 本）</div>
+      <div id="pickBooks"></div>
+    </div>
+    <div id="bookList" class="side-scroll"></div>
+    <div id="bookView" class="side-view hidden">
+      <div class="side-view-head">
+        <button id="bookBack" class="ghost">← 词书库</button>
+        <span id="bookViewTitle" class="book-view-title"></span>
+      </div>
+      <input id="bookSearch" class="book-search" placeholder="搜索本词书…(回车)">
+      <div class="book-body">
+        <div id="bookGroups"></div>
+        <div class="book-index" id="bookIndex"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="chatOverlay" class="overlay chat-overlay hidden">
+    <div class="chat-shell">
+      <div class="mode-tabs" id="modeTabs">
+      <button class="mtab on" data-m="chat"><i class="ic" data-ic="sparkles"></i>闲聊</button>
+      <button class="mtab" data-m="essay"><i class="ic" data-ic="pen-line"></i>作文</button>
+    </div>
+    <div class="chat-wrap">
+      <div class="dpage-bar">
+        <button id="chatClose" class="ghost">← 首页</button>
+        <span class="chat-title">即聊即学 · AI 语伴</span>
+        <button id="chatBooksBtn" class="ghost">对话错题本</button>
+        <button id="chatClear" class="ghost">清空对话</button>
+      </div>
+      <div id="chatTabs" class="chat-tabs"></div>
+      <div id="chatBody" class="chat-body"></div>
+      <div id="chatPop" class="chat-pop hidden"></div>
+      <div class="chat-input-bar">
+        <input id="chatInput" class="chat-input" placeholder="Type in English... (Ctrl+Enter 发送)" autocomplete="off">
+        <button id="chatSend" class="primary">发送</button>
+      </div>
+    </div>
+    <div id="essayPanel" class="essay-panel hidden"></div>
+    </div>
+  </div>
+  <div class="main-col">
+  <div id="readOverlay" class="read-overlay hidden">
+    <div class="chat-shell read-shell">
+      <div class="read-bar">
+        <button id="readClose" class="ghost">← 首页</button>
+        <button id="readImg" class="ghost">上传图片 / 文档</button>
+        <input type="file" id="readFile" accept=".png,.jpg,.jpeg,.webp,.bmp,.pdf,.docx,.txt" class="hidden">
+        <span class="chat-title">即读即学 · 读到即学</span>      </div>
+      <div class="read-body" id="readBody"></div>
+    </div>
+  </div>
+  <div id="homeView" class="hidden"></div>
+  <div id="studyView" class="container">
+    <header>
+      <h1><button id="homeBackBtn" class="book-btn" title="返回首页"><i class="ic" data-ic="home"></i>首页</button>
+      <button id="modeBtn" class="book-btn" title="切换识别模式: 视觉优先 / 纯OCR"><i class="ic" data-ic="eye"></i>视觉</button> <i class="ic" data-ic="camera"></i>即拍即学
+      <p class="sub">拍照 / 文档 → 自评候选词 → 生成背诵清单 → 默写</p>
+    </header>
+
+    <section class="input-panel">
+      <textarea id="textInput" placeholder="上传图片 / PDF / Word 自动识别，或在此粘贴英语课文…&#10;&#10;也可以直接粘贴: The Internet has changed the way we live..."></textarea>
+      <div class="toolbar">
+        <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.bmp" class="hidden" multiple>
+        <button id="imgBtn" class="ghost" title="照片/截图自动识别文字"><i class="ic" data-ic="camera"></i>传图片</button>
+        <button id="docBtn" class="ghost" title="上传 PDF / Word / 文本"><i class="ic" data-ic="file-text"></i>传文档</button>
+        <span id="fileHint" class="file-hint hidden"></span>
+        <button id="extractBtn"><i class="ic" data-ic="sparkles"></i>生成背诵清单</button>
+      </div>
+      <div id="status" class="status hidden"></div>
+    </section>
+
+    <section id="result" class="result hidden">
+      <div class="result-head">
+        <h2>背诵清单</h2>
+        <div class="meta"><span id="timeInfo"></span><button id="copyBtn" class="ghost">复制为文本</button></div>
+      </div>
+      <button id="dictateCta" class="dictate-cta hidden"><i class="ic" data-ic="pen-line"></i>已背完，开始默写 →</button>
+      <div class="summary-bar" id="summaryBar"></div>
+      <div id="ignoreBar" class="ignore-bar hidden"></div>
+
+      <div id="candBox" class="card hidden">
+        <h3><i class="ic" data-ic="eye"></i>候选词自评 <span class="count" id="candCount"></span></h3>
+        <label class="ext-toggle"><input type="checkbox" id="extToggle" checked> 显示拓展词（超纲）</label>
+      <div class="cand-note">候选词（已结合原文语境，含所勾选词书命中词 + 拓展词）。<b>认识的选「认识」，不认识的选「不认识」</b>（选择后显示词义，可随时改），最后点确认生成背诵清单。</div>
+        <table class="cand-table"><thead><tr><th>词</th><th>级别</th><th>归属</th><th>原文语境</th><th>自评</th><th>词义</th></tr></thead><tbody id="candBody"></tbody></table>
+        <div id="candFolded" class="cand-folded hidden">
+          <div class="folded-head"><span id="foldTitle"></span><button id="foldToggle" class="ghost">展开</button></div>
+          <div id="foldBody" class="hidden"></div>
+        </div>
+        <div class="cand-foot">
+          <span id="candStats"></span>
+          <button id="candConfirm" class="primary-big"><i class="ic" data-ic="circle-check"></i>确认生成背诵清单</button>
+        </div>
+      </div>
+
+      <div class="card hidden" id="card-vocab">
+        <h3><i class="ic" data-ic="type"></i>生词 <span class="count"></span></h3>
+        <table><thead><tr><th>单词</th><th>音标</th><th>词性</th><th>释义</th><th>级别</th><th>归属</th><th>原文例句</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card" id="card-phrases">
+        <h3><i class="ic" data-ic="link"></i>词组 <span class="count"></span></h3>
+        <ul></ul>
+      </div>
+      <div class="card" id="card-sentences">
+        <h3><i class="ic" data-ic="sparkles"></i>作文金句 <span class="count"></span></h3>
+        <ul></ul>
+      </div>
+      <div class="card" id="card-grammar">
+        <h3><i class="ic" data-ic="book-open"></i>语法 <span class="count"></span></h3>
+        <ul></ul>
+      </div>
+    </section>
+  </div>
+  </div>
+</div>
+
+<!-- 默写浮层: 设置 + 测试 + 结果 -->
+<div id="dictateOverlay" class="overlay hidden">
+  <div class="dictate-panel">
+    <div class="dpage-bar"><button id="dpageBack" class="ghost">← 返回</button><span id="dpageTitle">默写 / 每日自测</span></div>
+    
+    <!-- 设置 -->
+    <div id="dictateSetup">
+      <div class="dictate-head"><h3><i class="ic" data-ic="pen-line"></i>默写设置</h3><button id="setupClose" class="ghost">关闭</button></div>
+      <div class="ds-block">选择板块（可多选）：
+        <div class="ds-choices">
+          <label class="ds-chip"><input type="checkbox" id="dsWord" checked> <i class="ic" data-ic="type"></i>单词</label>
+          <label class="ds-chip"><input type="checkbox" id="dsPhrase" checked> <i class="ic" data-ic="link"></i>词组</label>
+          <label class="ds-chip"><input type="checkbox" id="dsSentence" checked> <i class="ic" data-ic="sparkles"></i>金句</label>
+        </div>
+      </div>
+      <div class="ds-block">默写数量：
+        <div class="ds-choices">
+          <button class="q-btn" data-q="0.25">25%</button>
+          <button class="q-btn" data-q="0.5">50%</button>
+          <button class="q-btn on" data-q="1">全部</button>
+          <input id="dsCount" class="ds-count" placeholder="或输入数量">
+        </div>
+      </div>
+      
+      <div class="ds-note">题型规则：单词中译英/英译中随机混合（英译中写中文，AI 容错批改）；词组·金句为看中文写英文。</div>
+      <button id="dictateStart" class="primary-big"><i class="ic" data-ic="rocket"></i>开始默写</button>
+    </div>
+    <!-- 测试 -->
+    <div id="dictateRun" class="hidden">
+      <div class="dictate-head">
+        <h3 id="dictateTitle"></h3>
+        <span id="roundInfo" class="round-info"></span>
+        <button id="dictateQuit" class="ghost">退出</button>
+      </div>
+      <div class="dictate-progress" id="dictateProgress"></div>
+      <div class="dictate-card" id="dictateCard">
+        <div id="dictatePrompt" class="dictate-prompt"></div>
+        <div id="dictateExample" class="dictate-example"></div>
+        <input id="dictateInput" class="dictate-input" autocomplete="off" spellcheck="false" placeholder="输入答案…" style="display:none">
+        <div id="choiceBox" class="choice-box" style="display:none"></div>
+        <div id="dictateFeedback" class="dictate-feedback hidden"></div>
+      </div>
+      <div class="dictate-actions">
+        <button id="dictateSkip" class="ghost">跳过</button>
+        <button id="dictateSubmit" class="primary">提交</button>
+        <button id="dictateNext" class="primary hidden">下一题</button>
+      </div>
+    </div>
+    <!-- 结果 -->
+    <div id="dictateResult" class="dictate-result hidden"></div>
+  </div>
+</div>
+
+<script src="icons.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

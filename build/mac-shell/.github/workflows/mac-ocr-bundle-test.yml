@@ -1,0 +1,234 @@
+name: mac-ocr-bundle-test
+# 云 mac 真机: 组装完整软件(mac侧) + 原生 .app 启动 + 全功能实测 + Mac 版 RapidOCR Python
+# 仓库内 bundle.zip 全 ASCII 内部路径; 云侧重命名回中文词书名
+on:
+  workflow_dispatch:
+
+jobs:
+  bundle-test:
+    runs-on: macos-14
+    timeout-minutes: 330
+    env:
+      WORK: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show env
+        run: |
+          sysctl -n machdep.cpu.brand_string || true
+          sw_vers
+
+      - name: Rebuild native shell from Sources
+        run: |
+          set -e
+          xcrun swiftc -O -target arm64-apple-macos12 Sources/main.swift -o stage_app
+          APP="英语背诵工具.app"
+          rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp stage_app "$APP/Contents/MacOS/EnglishStudyApp"
+          cp Info.plist "$APP/Contents/"
+          printf 'APPL????' > "$APP/Contents/PkgInfo"
+          codesign --force --deep -s - "$APP" 2>/dev/null || true
+
+      - name: Assemble bundle
+        run: |
+          set -e
+          B="$WORK/base"
+          rm -rf "$B"; mkdir -p "$B/英语背诵工具"
+          unzip -q bundle.zip -d "$B/pkg"
+          mv "$B/pkg/app" "$B/pkg/data" "$B/pkg/scripts" "$B/英语背诵工具/"
+          rm -rf "$B/pkg/EnglishStudyApp.app"
+          mv "$WORK/英语背诵工具.app" "$B/英语背诵工具/英语背诵工具.app" || { mkdir -p "$B/英语背诵工具/英语背诵工具.app/Contents/MacOS"; cp "$WORK/stage_app" "$B/英语背诵工具/英语背诵工具.app/Contents/MacOS/EnglishStudyApp"; cp "$WORK/Info.plist" "$B/英语背诵工具/英语背诵工具.app/Contents/" 2>/dev/null; }
+          # 词书恢复中文名 (server.js 按此名读取)
+          cd "$B/英语背诵工具/data"
+          mv book_sh.json 词书-上海高考.json
+          mv book_cefr.json 词书-CEFR.json
+          mv book_cet4.json 词书-CET4.json
+          mv book_cet6.json 词书-CET6.json
+          mkdir -p "$B/英语背诵工具/tmp"
+          chmod +x "$B/英语背诵工具/英语背诵工具.app/Contents/MacOS/EnglishStudyApp" || true
+          du -sh "$B/英语背诵工具"; ls "$B/英语背诵工具"
+
+      - name: Download llama-server mac (b10621)
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          mkdir -p dl
+          for i in 1 2 3; do
+            curl -sL -m 600 -o dl/llama.tar.gz "https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-macos-arm64.tar.gz" && tar -tzf dl/llama.tar.gz >/dev/null && break
+            sleep 20
+          done
+          tar -xzf dl/llama.tar.gz -C dl
+          mkdir -p "$B/engine"
+          mv dl/llama-b10621 "$B/engine/mac"
+          chmod +x "$B/engine/mac/llama-server"
+
+      - name: Download Node mac
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          curl -sL -m 600 -o dl/node.tgz "https://nodejs.org/dist/v24.19.0/node-v24.19.0-darwin-arm64.tar.gz"
+          tar -xzf dl/node.tgz -C dl
+          mkdir -p "$B/runtime/mac"
+          cp "dl/node-v24.19.0-darwin-arm64/bin/node" "$B/runtime/mac/node"
+          chmod +x "$B/runtime/mac/node"
+          "$B/runtime/mac/node" -v
+
+      - name: Build portable mac Python + RapidOCR
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          PB=cpython-3.11.13+20250612
+          TAG=20250612
+          ok=0
+          for u in "https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/${PB}-aarch64-apple-darwin-install_only.tar.gz" "https://ghfast.top/https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/${PB}-aarch64-apple-darwin-install_only.tar.gz" "https://gh-proxy.com/https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/${PB}-aarch64-apple-darwin-install_only.tar.gz"; do
+            curl -sL -m 900 -o dl/py.tgz "$u" && tar -tzf dl/py.tgz >/dev/null 2>&1 && { ok=1; break; }
+            echo "retry next mirror: $u"
+          done
+          [ "$ok" = "1" ] || { echo "python download failed"; exit 1; }
+          tar -xzf dl/py.tgz -C "$B/runtime"
+          mv "$B/runtime/python" "$B/runtime/python-mac-arm64"
+          PY="$B/runtime/python-mac-arm64/bin/python3"
+          chmod +x "$PY"
+          "$PY" --version
+          "$PY" -m ensurepip --upgrade >/dev/null
+          "$PY" -m pip install --quiet --upgrade pip
+          "$PY" -m pip install --quiet pillow opencv-python numpy pyclipper shapely six onnxruntime rapidocr-onnxruntime pymupdf
+          "$PY" -c "import rapidocr_onnxruntime, cv2, fitz, numpy; print('mac-py imports OK')"
+          du -sh "$B/runtime/python-mac-arm64"
+
+      - name: Download models
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          M="$B/models"; mkdir -p "$M"
+          dl() { for i in 1 2 3; do curl -sL -C - -m 2400 -o "$2" "$1" && [ $(wc -c < "$2") -gt 100000000 ] && break; sleep 15; done; }
+          dl "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf" "$M/gemma-4-E2B-it-Q4_K_M.gguf"
+          dl "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/mmproj-F16.gguf" "$M/gemma-4-E2B-mmproj-F16.gguf"
+          ls -l "$M"
+
+      - name: Launch native app + wait services
+        timeout-minutes: 45
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          codesign --force --deep -s - "$B/英语背诵工具.app" 2>/dev/null || true
+          xattr -cr "$B" 2>/dev/null || true
+          mkdir -p "$WORK/report"
+          open "$B/英语背诵工具.app"
+          OK=0
+          for i in $(seq 1 150); do
+            sleep 5
+            curl -s -m 3 http://127.0.0.1:8804/api/books >/dev/null 2>&1 && curl -s -m 3 http://127.0.0.1:8080/health | grep -q ok && { echo "READY in $((i*5))s"; OK=1; break; }
+          done
+          if [ "$OK" != "1" ]; then
+            echo "FATAL: not ready"
+            tail -80 /tmp/es_engine.log 2>/dev/null || true
+            tail -80 /tmp/es_web.log 2>/dev/null || true
+            ps aux | grep -E "llama-server|node " | grep -v grep | head
+            screencapture -x "$WORK/report/screen_fail.png" || true
+            exit 1
+          fi
+
+      - name: Full feature test
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"; R="$WORK/report"
+          curl -s -m 10 http://127.0.0.1:8804/api/books > "$R/books.json"
+          curl -s "http://127.0.0.1:8804/api/book/cet4?letter=A" > "$R/cet_book.json"
+          curl -s "http://127.0.0.1:8804/api/book/cet6?q=tech" > "$R/cet_search.json"
+          echo "The committee decided to postpone the announcement because the preliminary data was insufficient. An unprecedented proliferation of renewables necessitates comprehensive infrastructural transformation." > "$R/sample.txt"
+          "$B/runtime/mac/node" -e "
+          const fs=require('fs');const http=require('http');
+          const txt=fs.readFileSync('$R/sample.txt','utf8');
+          const post=(path,obj,to)=>new Promise(r=>{const b=JSON.stringify(obj);const q=http.request({host:'127.0.0.1',port:8804,path,method:'POST',headers:{'Content-Type':'application/json'},timeout:to},s=>{let d='';s.on('data',c=>d+=c);s.on('end',()=>{try{r(JSON.parse(d))}catch(e){r({parseErr:d.slice(0,200)})}})});q.on('error',e=>r({err:e.message}));q.end(b);});
+          (async()=>{
+            const ex=await post('/api/extract',{text:txt,grade:'大学',books:['sh','cet4','cet6']},300000);
+            fs.writeFileSync('$R/extract.json',JSON.stringify(ex));
+            const ch=await post('/api/chat',{message:'I went to yesterday beach and swam with a informations.',grade:'大学',history:[],persona:'native'},120000);
+            fs.writeFileSync('$R/chat.json',JSON.stringify(ch));
+            const wm=await post('/api/word-meanings',{words:['abandon','proliferation','cliché']},120000);
+            fs.writeFileSync('$R/meanings.json',JSON.stringify(wm));
+            console.log('feature test done');
+          })();"
+          curl -s -m 10 http://127.0.0.1:8804/api/health > "$R/health.json"
+          screencapture -x "$R/screen.png" || true
+
+      - name: OCR end-to-end (mac RapidOCR)
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"; R="$WORK/report"
+          PY="$B/runtime/python-mac-arm64/bin/python3"
+          "$PY" - <<'EOF'
+          from PIL import Image, ImageDraw, ImageFont
+          import glob
+          im = Image.new('RGB', (900, 240), 'white')
+          d = ImageDraw.Draw(im)
+          f = None
+          for cand in glob.glob('/Syste…rial.ttf') + ['/System/Library/Fonts/Helvetica.ttc', '/System/Library/Fonts/Menlo.ttc']:
+              try:
+                  f = ImageFont.truetype(cand, 42); break
+              except Exception:
+                  pass
+          d.text((30, 60), 'The quick brown fox jumps', fill='black', font=f)
+          d.text((30, 140), 'over the lazy dog 0123456789', fill='black', font=f)
+          im.save('/tmp/ocr_test.png')
+          print('test image made')
+          EOF
+          cd "$B"
+          "$PY" scripts/rapid_ocr.py /tmp/ocr_test.png > "$R/ocr_direct.json" || echo '{"error":"cli fail"}' > "$R/ocr_direct.json"
+          head -c 400 "$R/ocr_direct.json"; echo
+          "$B/runtime/mac/node" -e "
+          const fs=require('fs');const http=require('http');
+          const img=fs.readFileSync('/tmp/ocr_test.png').toString('base64');
+          const r=http.request({host:'127.0.0.1',port:8804,path:'/api/file-text',method:'POST',headers:{'Content-Type':'application/json'},timeout:600000},res=>{let b='';res.on('data',d=>b+=d);res.on('end',()=>{fs.writeFileSync('$R/ocr_server.json',b);console.log('server ocr:',b.slice(0,300));});});
+          r.on('error',e=>{fs.writeFileSync('$R/ocr_server.json',JSON.stringify({err:e.message}));console.log('ERR',e.message);});
+          r.end(JSON.stringify({name:'t.png',data:img}));"
+
+      - name: Summarize
+        if: always()
+        run: |
+          cd "$WORK/report" && python3 - <<'EOF' > summary.txt 2>&1 || true
+          import json
+          def load(p):
+              try: return json.load(open(p))
+              except Exception as e: return {'_err': str(e)[:80]}
+          print('== MAC CLOUD TEST SUMMARY ==')
+          b = load('books.json'); print('books:', [x['id'] for x in b.get('books', [])])
+          e = load('extract.json'); c = e.get('candidates') or []
+          print('extract: ok=%s cands=%d' % (e.get('ok'), len(c)))
+          for x in c[:8]: print('  -', x.get('word'), '|', x.get('scope'), '|', (x.get('meaning') or '')[:30])
+          ch = load('chat.json'); print('chat: ok=', ch.get('ok'), 'reply=', repr((ch.get('reply') or '')[:100]))
+          corr = ch.get('corrections') or []
+          print('chat corrections:', [(k.get('from'), k.get('to')) for k in corr][:5])
+          m = load('meanings.json'); print('word-meanings:', json.dumps(m.get('map', {}), ensure_ascii=False)[:200])
+          od = load('ocr_direct.json'); print('ocr direct:', repr((od.get('text') or '')[:120]))
+          os_ = load('ocr_server.json'); print('ocr server:', repr((os_.get('text') or os_.get('err') or '')[:160]), '| engine:', os_.get('scanEngine'))
+          print('health:', json.dumps(load('health.json'), ensure_ascii=False)[:200])
+          print('cet_book first3:', json.dumps(load('cet_book.json').get('items', [])[:3], ensure_ascii=False)[:260])
+          EOF
+          cat summary.txt || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-test-report
+          path: report/
+
+      - name: Pack mac Python
+        run: |
+          set -e
+          B="$WORK/base/英语背诵工具"
+          cd "$B/runtime"
+          tar -czf "$WORK/python-mac-arm64.tar.gz" python-mac-arm64
+          ls -lh "$WORK/python-mac-arm64.tar.gz"
+
+      - name: Upload python artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-mac-arm64
+          path: python-mac-arm64.tar.gz
+
+      - name: Disk final
+        if: always()
+        run: df -h / | tail -1
