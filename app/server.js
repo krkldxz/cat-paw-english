@@ -19,7 +19,7 @@ try {
   BOOK = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'data', '词书-上海高考.json'), 'utf8'));
   console.log(`[词书] ${BOOK.name} | 单词 ${BOOK.word_count} / 词组 ${BOOK.phrase_count}`);
 } catch (e) {
-  console.log('[词书] 加载失败(不影响核心功能):', e.message);
+  console.log('[词书] 上海高考词书未随仓库分发(版权原因, 可选) - 可用侧栏添加词书导入自有词书');
 }
 
 function buildBookIndex(book) {
@@ -128,7 +128,7 @@ function loadAllBooks() {
       const j = JSON.parse(fs.readFileSync(path.join(DATA_DIR, b.file), 'utf8'));
       const rec = registerBook(b.id, j, b.kind, 'builtin', b.file, b.short);
       console.log('[词书] ' + b.id + ' | ' + rec.name + ' | ' + rec.wordCount + ' 词');
-    } catch (e) { console.log('[词书] ' + b.file + ' 未加载:', e.message); }
+    } catch (e) { console.log('[词书] ' + b.file + ' 未随仓库分发(可选词书, 非错误)'); }
   }
   // 自动发现 data/词书-*.json (不在内置清单里的, 如 词书-高考.json / 词书-中考.json)
   const builtinFiles = new Set(BUILTIN_BOOKS.map(b => b.file));
