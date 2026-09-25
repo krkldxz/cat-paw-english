@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>英语背诵与学习软件 · 作品介绍</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-size: 10.5pt; line-height: 1.7; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: .5px; }
+  h2 { font-size: 14pt; margin: 26px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #f97316; color: #b45309; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; color: #333; }
+  p { margin: 6px 0; }
+  .sub { color: #666; font-size: 10pt; margin-bottom: 2px; }
+  .lead { font-size: 11.5pt; background: #fff7ed; border-left: 4px solid #f97316; padding: 10px 14px; margin: 14px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.5pt; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; font-weight: 600; }
+  td.n { text-align: center; white-space: nowrap; }
+  code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-family: Consolas, monospace; font-size: 9pt; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px; font-size: 8.5pt; line-height: 1.45; overflow: hidden; }
+  .ok { color: #15803d; font-weight: 600; }
+  .mid { color: #b45309; font-weight: 600; }
+  .no { color: #b91c1c; font-weight: 600; }
+  .fig { text-align: center; margin: 10px 0; }
+  .fig img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+  .cap { font-size: 8.5pt; color: #777; margin-top: 3px; }
+  .pagebreak { page-break-before: always; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  .foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 8.5pt; color: #777; }
+</style>
+</head>
+<body>
+
+<h1>英语背诵与学习软件（cat paw）</h1>
+<p class="sub">端侧离线 AI 英语背诵工具 · 2026 上海开源软件应用创新大赛 · 开源 AI 工具赛道</p>
+<p class="sub">项目负责人：康容恺（上海师范大学）&nbsp;|&nbsp; 代码许可：Apache-2.0 &nbsp;|&nbsp; 文档日期：2026-09-26</p>
+
+<div class="lead">
+<b>一句话：</b>把课文或试卷（打字、拍照、传 PDF 都行）丢进去，本机大模型自动提炼<b>生词·词组·作文金句·搭配·语法</b>，
+按<b>考纲 × CEFR × 学生历史掌握</b>三层过滤生成背诵清单，再用<b>默写 + SM-2 间隔复习</b>闭环到长期记忆。
+<b>全程离线运行，学习数据不出机器。</b>
+</div>
+
+<h2>一、项目背景与痛点</h2>
+
+<h3>1.1 问题不是"记不住"，而是"背的不是该背的"</h3>
+<p>
+中学生英语学习里，真正耗时间的环节不是背，而是<b>整理</b>：一篇课文读完后，学生要逐个查词、判断哪些是考纲词、哪些已经会了、哪些是熟词僻义，
+再抄成清单，最后才开始背。这套手工流程动辄二三十分钟，且高度依赖个人经验——结果是<b>清单与实际需要错位</b>：把已经掌握的基础词抄了一堆，真正该攻的搭配和语境义反而漏了。
+</p>
+
+<h3>1.2 现有工具的三类错位</h3>
+<table>
+<tr><th style="width:22%">类型</th><th style="width:39%">做法</th><th>错位点</th></tr>
+<tr><td>词表类 App</td><td>平台预设词书，学生按既定顺序刷</td><td>与学生手上这篇课文脱节；无法利用"阅读中遇到"的记忆优势</td></tr>
+<tr><td>云 API 类 AI 工具</td><td>把课文上传给大模型，返回生词表</td><td>隐私风险（学生作文、试卷上传第三方）；断网不可用；按量计费</td></tr>
+<tr><td>通用 AI 聊天</td><td>对话里让模型"给我提炼生词"</td><td>输出不稳定、无分层依据、无记忆闭环，用完即弃</td></tr>
+</table>
+
+<h3>1.3 本项目的取向</h3>
+<p>
+把"整理"这一环完全自动化，并且<b>让分层依据是可解释、可复核的</b>：每个词都标注归属（考纲 / 拓展）、CEFR 级别、文中义与词典全义的区别；
+软件不替学生拍板"这个词你该会"，而是本着你自己的 ✓/✗ 自评与默写结果收敛——<b>宁多勿少，精简交给学习行为</b>。
+</p>
+
+<div class="fig">
+  <img src="media/界面截图.png" alt="软件界面">
+  <div class="cap">软件主界面（本地网页 + 桌面壳，Windows / macOS 免安装一体化分发）</div>
+</div>
+
+<div class="pagebreak"></div>
+<h2>二、技术架构</h2>
+
+<h3>2.1 总览</h3>
+<pre>
+                    ┌────────────────────── 全部在本机运行, 无任何上传 ──────────────────────┐
+  输入              │                                                                       │
+  ─────             │   ┌───────────────┐   结构化提炼    ┌──────────────────────────────┐   │
+  粘贴文本 ─────────┼──▶│ Node 零依赖   │ ──────────────▶│ llama.cpp + Gemma 4 E2B      │   │
+  📷 照片 ──RapidOCR┼──▶│ 后端 :8804    │◀──── JSON ──────│ (Q4_K_M 2.9G + mmproj 视觉)  │   │
+  📄 PDF/Word ──────┼──▶│               │                 └──────────────────────────────┘   │
+                    │   └───────┬───────┘                                                │
+                    │           │  规则层 (确定性, 不依赖模型记忆)                            │
+                    │           ├─ 词书机械扫描: 全文词 × 主词书 → 归属(考纲/拓展)              │
+                    │           ├─ CEFR 分级: 年级门槛过滤 + 熟词僻义识别                      │
+                    │           └─ 语境义回填: 词出现在词组/搭配区时按语境给义                    │
+                    │           ▼                                                           │
+                    │    背诵清单(生词/词组/金句/搭配/语法)                                    │
+                    │           ▼                                                           │
+                    │    候选自评 → 默写判卷 → 记忆层(SM-2) → 每日自测  ← 浏览器 localStorage  │
+                    └───────────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h3>2.2 关键设计决策</h3>
+<table>
+<tr><th style="width:26%">决策</th><th>理由</th></tr>
+<tr><td><b>端侧模型而非云 API</b></td><td>目标场景（学生日常学习）里隐私与"随时可用"是硬需求；Gemma 4 已改为 Apache-2.0，商业与再分发无阻碍</td></tr>
+<tr><td><b>llama.cpp 而非 Ollama</b></td><td>可直接挂 <code>mmproj</code> 做多模态（拍照识别），且能塞进单文件夹一体化分发；Ollama 保留为可选回退路径</td></tr>
+<tr><td><b>Node 零依赖后端</b></td><td>不需要 <code>npm install</code>，clone 下来就能跑——把"陌生人 5 分钟能用"作为一等目标</td></tr>
+<tr><td><b>词书过滤用规则而非模型</b></td><td>"这个词是不是考纲词"必须确定性、可复现；模型只负责语言理解，判断交给规则层与词书数据</td></tr>
+<tr><td><b>学习记忆放浏览器</b></td><td>学生数据零落盘、零上传；代价是清浏览器数据即重置（已在文档中明示）</td></tr>
+</table>
+
+<h3>2.3 三条输入链路</h3>
+<ol>
+<li><b>文本</b>：直接粘贴，长文（&gt;2200 字符）自动切块合并</li>
+<li><b>照片</b>：RapidOCR 快路径（印刷体 ~1–2 秒）→ 质量不足自动切内置视觉模型（复杂版面 / 手写）→ 双保险</li>
+<li><b>文档</b>：PDF（文本型直接抽字 / 扫描版逐页渲染识别）、Word、txt；识别文字回填输入框，可编辑确认后再提炼</li>
+</ol>
+
+<h3>2.4 可移植性（面向"陌生人能跑"）</h3>
+<p>
+后端对 Python 采取<b>降级优先</b>的探测链：内嵌 macOS Python → 内嵌 <code>runtime\python</code> → <code>ES_PYTHON</code> 环境变量 → 本机候选 → <code>python3</code>/<code>python</code>；
+全部找不到时，照片 OCR 与文档解析自动降级，<b>粘贴文本与视觉模型链路不受影响</b>。模型与引擎不随仓库分发，由 <code>tools/</code> 下脚本按
+<b>sha256 逐字节校验</b>从上游获取；无模型时软件仍可启动（界面、词书、默写、记忆层全部可用）。
+</p>
+
+<div class="pagebreak"></div>
+<h2>三、应用场景</h2>
+
+<table>
+<tr><th style="width:22%">场景</th><th>用法与价值</th></tr>
+<tr>
+  <td><b>学生自学（主场景）</b></td>
+  <td>课后把课文 / 试卷阅读拍照进软件 → 20 秒内得到按自己水平筛过的背诵清单 → 当天默写 + 次日进入 SM-2 复习排程。把"整理"这一环从二三十分钟压到几十秒。</td>
+</tr>
+<tr>
+  <td><b>教师布置与讲评</b></td>
+  <td>老师把自己选的阅读材料一键生成清单（可复制为文本发群），学生端导入同一篇材料即可对齐；当前版本的班级功能尚未实现（见第五节）。</td>
+</tr>
+<tr>
+  <td><b>无网 / 弱网环境</b></td>
+  <td>校园网受限、机房不联网、家庭宽带不稳的场景完全可用；模型与词书都在本机。</td>
+</tr>
+<tr>
+  <td><b>隐私敏感场景</b></td>
+  <td>学生作文、试卷、成绩相关信息全程不出机器——这是很多学校愿意采用本地工具而非云服务的关键理由。</td>
+</tr>
+<tr>
+  <td><b>面向开发者的复用</b></td>
+  <td>"清单 → 默写 → SM-2 排程"这套记忆内核与词书构建流水线（<code>scripts/</code>）都是独立可复用的：其他教育类开源项目可直接接入自己的词表。</td>
+</tr>
+</table>
+
+<h2>四、创新点（对比式说明）</h2>
+
+<h3>4.1 端侧推理，而非调用云端 API</h3>
+<p>
+<b>已有方案</b>：同类背单词 App 与 AI 学习工具普遍把文本上传至云端模型。<br>
+<b>不足</b>：隐私外泄风险、断网不可用、按量计费、校园网络受限时不可用。<br>
+<b>本项目</b>：Gemma 4 E2B（Apache-2.0）经 llama.cpp 在本机 GPU 推理，<b>实测 8–20 秒/篇</b>（RTX 5060 Laptop 8GB，约 67 tok/s）；
+断网可用、零调用费用、数据不出机器。
+</p>
+
+<h3>4.2 三层过滤 + 熟词僻义，而非"模型吐一张词表"</h3>
+<p>
+<b>已有方案</b>：让模型直接输出"本课生词"，结果依赖模型对"学生水平"的猜测。<br>
+<b>不足</b>：不可解释、不可复现、无法对应各地考纲差异、漏掉"认识但新义项没学过"的词。<br>
+<b>本项目</b>：<br>
+① <b>考纲层</b>——全文词与主词书做机械扫描比对，确定性地标注"考纲 / 拓展"归属；<br>
+② <b>分级层</b>——CEFR 级别 + 年级门槛（如高一≥B1、高二高三≥B2）过滤确定掌握的入门词；<br>
+③ <b>历史层</b>——已掌握的词自动掠过，错过的词优先复现；<br>
+④ <b>熟词僻义识别</b>——一词多义时（如 screen 名词 A2 / 动词 B2），低义项已掌握而高义项未学，则保留并标记。
+</p>
+
+<h3>4.3 记忆闭环开源，而非黑盒</h3>
+<p>
+<b>已有方案</b>：多数 AI 学习工具止于"生成清单"。<br>
+<b>本项目</b>：清单 → 候选自评 → 默写（中↔英双向，AI 容错判卷，题目含原文例句挖空）→ 错题池 → <b>SM-2 隔日复习排程</b>（1→6→15→38→95 天）
+→ 掌握三分（✅/🔶/🚫）→ 每日自测（≤30 题，含防遗忘抽查）。这一整套以开源形式提供，可被其他教育项目复用。
+</p>
+
+<h3>4.4 词书数据可复现、可交叉验证</h3>
+<p>
+所有词书均由 <code>scripts/</code> 下构建脚本从<b>明确许可的公开数据源</b>重建：高考 / 中考 / 四六级来自 moread-content（MIT）+ ECDICT（MIT）聚合，
+CEFR 分级来自 Words-CEFR-Dataset（MIT）。<br>
+<b>交叉验证证据</b>：本项目生成的高考词表（3837 词）与 ECDICT 自带的 <code>gk</code> 考试标签（3677 词）<b>重合 3662 词，覆盖率 95.4%</b>——
+两份互相独立的数据源彼此印证，说明词表可信度<b>可复现、可检验</b>，而非单一来源的"黑箱词表"。
+</p>
+
+<h3>4.5 面向非技术用户的"最后一公里"</h3>
+<p>
+提供 Windows（WebView2 壳）与 macOS（.app / .command）桌面壳、一键启动脚本（含显存检测与自动降级）、单文件夹一体化分发；
+模型与引擎的获取脚本内建 sha256 校验与断点续传。目标是让不写代码的老师也能装上就用。
+</p>
+
+<div class="pagebreak"></div>
+<h2>五、功能完成度与未实现说明</h2>
+<p class="sub">按赛事要求，如实标注完成程度（自评百分比，以"可交付可用"为标准）。</p>
+
+<table>
+<tr><th style="width:32%">模块</th><th class="n" style="width:12%">完成度</th><th>说明</th></tr>
+<tr><td>文本输入 → 五板块提炼</td><td class="n ok">100%</td><td>端侧模型结构化输出，长文自动切块合并</td></tr>
+<tr><td>照片 / 文档输入</td><td class="n mid">90%</td><td>RapidOCR + 视觉双路径已通；双栏排版的分栏列切分未完成，复杂双栏可能串行</td></tr>
+<tr><td>三层过滤 + 熟词僻义</td><td class="n ok">100%</td><td>规则层确定性实现，含语境义回填</td></tr>
+<tr><td>候选自评交互</td><td class="n ok">100%</td><td>含"连续 3 次认识自动折叠"</td></tr>
+<tr><td>默写（双向 + AI 判卷）</td><td class="n ok">100%</td><td>中↔英、原文例句挖空、错题循环到全对</td></tr>
+<tr><td>记忆层（SM-2 + 掌握三分 + 每日自测）</td><td class="n ok">100%</td><td>算法参数仍有调优空间（见下）</td></tr>
+<tr><td>词书系统（5 套 + 导入 + 切换主词书）</td><td class="n ok">100%</td><td>注册表驱动，用户可导入自有词书</td></tr>
+<tr><td>桌面分发（Win / macOS）</td><td class="n mid">85%</td><td>两平台壳与一体化包已可用；单文件 Electron 安装包未做</td></tr>
+<tr><td>学习统计报表</td><td class="n mid">30%</td><td>仅基础掌握进度与错题统计，趋势图表未做</td></tr>
+<tr><td>数据导出（家长 / 老师查看）</td><td class="n no">0%</td><td>未实现</td></tr>
+<tr><td>老师端（建班 / 布置 / 统计）</td><td class="n no">0%</td><td>未实现，规划在下一阶段</td></tr>
+<tr><td>移动端 App</td><td class="n no">0%</td><td>未实现（架构上模型同构可用，需按平台重写壳）</td></tr>
+<tr><td>多省考纲词书自动获取</td><td class="n no">0%</td><td>未实现；因各地考纲多为出版社出版物，需作者自行获取授权</td></tr>
+</table>
+<p><b>整体自评：核心链路与记忆闭环 100% 可用；工程化分发约 85%；外围（统计 / 导出 / 老师端 / 移动端）基本未做，约占规划总量的四分之一。</b></p>
+
+<h3>已知局限</h3>
+<ul>
+<li>SM-2 参数（EF 步长、每日新卡上限）为通行默认值，尚未用自有数据调优</li>
+<li>双栏 PDF / 照片的列切分未完成，建议单栏截图</li>
+<li>学习记忆存浏览器 localStorage，换浏览器或清缓存会重置（设计取舍：为隐私零落盘）</li>
+<li>无 GPU 时走 CPU 层，速度明显下降（功能完整）</li>
+</ul>
+
+<h2>六、开源与合规</h2>
+<table>
+<tr><th style="width:26%">项</th><th>说明</th></tr>
+<tr><td>代码许可</td><td><b>Apache-2.0</b>（含专利授权条款，见仓库 <code>LICENSE</code> / <code>NOTICE</code>）</td></tr>
+<tr><td>第三方组件</td><td>逐条实测上游 LICENSE 原文并记录于 <code>THIRD_PARTY_NOTICES.md</code>：Gemma 4（Apache-2.0）、llama.cpp（MIT）、PaddleOCR / PaddleX / RapidOCR（Apache-2.0）、ECDICT / moread-content / Words-CEFR-Dataset（MIT）、Lucide（ISC）</td></tr>
+<tr><td>模型分发</td><td>模型权重与推理引擎因体积不随仓库分发，由脚本从上游获取并做 sha256 校验；如随分发包一并提供，将附 Apache-2.0 全文与版权声明</td></tr>
+<tr><td>版权隔离</td><td>各地官方考纲词汇手册（如上海译文出版社出版的词汇手册）<b>不随仓库分发</b>；软件提供"导入自有词书"能力由使用者自备原件。仓库内词书均来自 MIT 许可的公开数据源</td></tr>
+<tr><td>隐私</td><td>程序不发起任何上传请求；学习数据仅存本地浏览器</td></tr>
+</table>
+
+<h2>七、后续规划</h2>
+<ol>
+<li><b>短期</b>：双栏 OCR 列切分、学习统计报表、学习数据导出（家长/老师可读）</li>
+<li><b>中期</b>：老师端（建班、布置材料、查看班级掌握分布）；SM-2 参数按自有数据调优</li>
+<li><b>长期</b>：移动端（模型同构复用）；更多学科（把"材料 → 清单 → 默写 → 排程"内核迁移到语文古诗文、历史年代线等）</li>
+</ol>
+
+<div class="foot">
+本文件为参赛作品介绍文档 · 项目「英语背诵与学习软件（cat paw）」· 2026-09-26<br>
+代码仓库：<i>（待公开，链接将随提交材料提供）</i> · 演示视频：<i>（待录制）</i>
+</div>
+
+</body>
+</html>
