@@ -176,7 +176,7 @@ function bookBrief(rec) {
 // 通用词表扫描 (音标/释义型词书; 算法同原 scanCet)
 function scanList(text, rec) {
   const tokens = (String(text || '').toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []);
-  const idx = rec.index || {};
+  const idx = (rec.index && rec.index.info) || {};
   const found = new Map();
   for (const t of tokens) {
     if (STOP.has(t) || t.length < 2) continue;
@@ -206,7 +206,7 @@ function scanLeveled(text, rec, grade) {
   const tokens = (String(text || '').toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []);
   const keep = KEEP_LINE[grade] || 'B1';
   const nKeep = LVL_N[keep];
-  const idx = rec.index || {};
+  const idx = (rec.index && rec.index.info) || {};
   const out = new Map();
   for (const t of tokens) {
     if (STOP.has(t) || t.length < 2) continue;
@@ -310,7 +310,7 @@ function annotate(data, grade) {
   if (!data) return data;
   const keep = KEEP_LINE[grade] || null;
   const nKeep = keep ? LVL_N[keep] : null;
-  const { info } = primaryIndex().info;
+  const info = primaryIndex().info;
   const out = [];
   for (const v of data.vocabulary || []) {
     const w = String(v.word || '').trim().toLowerCase();
@@ -338,7 +338,7 @@ function scanBook(text, grade) {
   const tokens = (String(text || '').toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []);
   const keep = KEEP_LINE[grade] || null;
   const nKeep = keep ? LVL_N[keep] : null;
-  const { info } = primaryIndex().info;
+  const info = primaryIndex().info;
   const found = new Map();
   for (const t of tokens) {
     if (STOP.has(t) || t.length < 2) continue;
@@ -1273,6 +1273,10 @@ function makeDistractors() {
   return [...new Set(pool)].slice(0, 50);
 }
 
+// 兜底: 任何未捕获异常都不应让本地服务整个死掉 (演示/比赛场景尤其致命)
+process.on('uncaughtException', e => { console.error('[uncaught] 服务保持存活, 已记录:', (e && e.stack) || e); });
+process.on('unhandledRejection', e => { console.error('[unhandledRejection] 已记录:', (e && e.stack) || e); });
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   // API: 文本提取
@@ -1287,21 +1291,25 @@ const server = http.createServer(async (req, res) => {
         if (!validBooks.length) validBooks.push(PRIMARY_ID);
         const t0 = Date.now();
         const data = await extractData(text, grade);
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         const annotated = annotate(data, grade);
         const payload = { ok: true, timeMs: Date.now() - t0, grade: grade || null, data: annotated };
         payload.candidates = buildCandidates(text, annotated, grade, validBooks); // 自评候选(勾选词书, 含语境)
         payload.books = validBooks;
         payload.distractors = makeDistractors(); // 四选一干扰项池
         await fillContextMeanings(payload.candidates, text); // 无释义候选按语境补义
+        // 全部计算完成后再发响应头: 否则中途抛错会在 catch 里二次 writeHead → 进程崩溃
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(payload));
-      } catch (e) {
+      } catch (err) {
+        console.error('[extract] 失败:', (err && err.stack) || err);
+        if (res.headersSent) { try { res.destroy(); } catch (e2) {} return; }
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.end(JSON.stringify({ ok: false, error: err.message }));
       }
     });
     return;
   }
+
   // API: 文件/图片 → 文本 (PDF/DOCX/TXT 解析; 图片走内嵌 gemma4 视觉)
   if (url.pathname === '/api/file-text' && req.method === 'POST') {
     let body = '';
