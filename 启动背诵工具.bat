@@ -1,56 +1,123 @@
 @echo off
 rem ============================================
-rem  AI è‹±è¯­èƒŒè¯µæ¸…å• - ä¸€é”®å¯åŠ¨
-rem  å¼•æ“(8080) + ç½‘é¡µæœåŠ¡(8804), å…¨ç¨‹æœ¬åœ°ç¦»çº¿
+rem  Ó¢Óï±³ËĞÓëÑ§Ï°Èí¼ş (cat paw) ¡¤ Ò»¼üÆô¶¯
+rem  ÒıÇæ(8080) + ÍøÒ³·şÎñ(8804), È«³Ì±¾µØÀëÏß
+rem  Ê×´ÎÔËĞĞ: ×Ô¶¯¼ì²âÔËĞĞÇ°Ìá; È±ÉÙ AI Ä£ĞÍ/ÒıÇæÊ±¿ÉÒ»¼üÏÂÔØ
 rem ============================================
-setlocal
-set BASE=C:\Users\krkld\.openclaw\projects\english-study
+setlocal enabledelayedexpansion
+set BASE=%~dp0
+if "%BASE:~-1%"=="\" set BASE=%BASE:~0,-1%
 set APP=%BASE%\app
 set MODEL=%BASE%\models\gemma-4-E2B-it-Q4_K_M.gguf
 set MMPROJ=%BASE%\models\gemma-4-E2B-mmproj-F16.gguf
-where node >nul 2>nul || (echo [é”™è¯¯] æœªæ‰¾åˆ° node & pause & exit /b 1)
+set ENGINE=%APP%\llama\llama-server.exe
 
-rem 1. å¯åŠ¨æ¨ç†å¼•æ“ llama-server (8080), å·²åœ¨è·‘åˆ™è·³è¿‡
-netstat -ano | findstr ":8080 " | findstr "LISTENING" >nul
-if %errorlevel%==0 (
-  echo [å¼•æ“] 8080 å·²åœ¨è¿è¡Œ
-) else (
-  rem æ˜¾å­˜æ£€æµ‹: ç©ºé—² <3.5GB æ—¶é™çº§ GPU å±‚æ•°(é˜²è¢« ComfyUI/å…¶ä»–ä»»åŠ¡æŒ¤å´©)
-  set NGL=99
-  for /f "tokens=2 delims=," %%a in ('nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits') do set FREEGB=%%a
-  if defined FREEGB (
-    if %FREEGB% LSS 4500 (
-      set NGL=25
-      echo [å¼•æ“] æ˜¾å­˜ä»… %FREEGB%MB, é™çº§ GPU å±‚æ•°(-ngl 25), é€Ÿåº¦ä¼šå˜æ…¢
+echo ============================================
+echo   Ó¢Óï±³ËĞÓëÑ§Ï°Èí¼ş (cat paw)
+echo   Ä¿Â¼: %BASE%
+echo ============================================
+echo.
+
+rem ---------- 0a. ÔËĞĞÇ°Ìá: Node.js ----------
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [´íÎó] Î´ÕÒµ½ Node.js ^(±¾Èí¼ş·şÎñ¶ËĞèÒª Node.js 18 »ò¸ü¸ß°æ±¾^)
+  echo        ÏÂÔØ°²×°: https://nodejs.org/zh-cn/download
+  echo        °²×°Íê³ÉºóÖØĞÂË«»÷±¾ÎÄ¼ş¼´¿É¡£
+  echo.
+  pause
+  exit /b 1
+)
+
+rem ---------- 0b. ÔËĞĞÇ°Ìá: AI Ä£ĞÍÓëÒıÇæ ----------
+set HAVE_AI=1
+if not exist "%ENGINE%" set HAVE_AI=0
+if not exist "%MODEL%"  set HAVE_AI=0
+if not exist "%MMPROJ%" set HAVE_AI=0
+
+if "%HAVE_AI%"=="0" (
+  echo [ÌáÊ¾] Î´¼ì²âµ½ AI Ä£ĞÍÓëÍÆÀíÒıÇæ ^(Ô¼ 5.2 GB^)
+  echo.
+  echo        È±ÉÙËüÃÇÊ±ÈÔ¿ÉÊ¹ÓÃ: ½çÃæ ¡¤ ´ÊÊéä¯ÀÀ ¡¤ Ä¬Ğ´ ¡¤ ¼ÇÒä¸´Ï°
+  echo        ²»¿ÉÊ¹ÓÃ:           ¿ÎÎÄÌáÁ¶ ¡¤ Í¼Æ¬/PDF Ê¶±ğ
+  echo.
+  echo   [1] ÏÖÔÚÏÂÔØ AI ^(ÍÆ¼ö: Ô¼ 5.2 GB, Ö§³Ö¶ÏµãĞø´« + sha256 Ğ£Ñé^)
+  echo   [2] ÏÈ²»ÏÂÔØ, ÒÔ"×îĞ¡°æ"Æô¶¯ ^(½çÃæ/´ÊÊé/Ä¬Ğ´¿ÉÓÃ^)
+  echo   [3] ÍË³ö
+  echo.
+  set /p CHOICE=ÇëÊäÈë 1 »ò 2 »ò 3 ºó»Ø³µ:
+  if "!CHOICE!"=="1" (
+    echo.
+    echo [ÏÂÔØ 1/2] ÍÆÀíÒıÇæ llama.cpp ...
+    powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-engine.ps1"
+    echo [ÏÂÔØ 2/2] Ä£ĞÍÈ¨ÖØ ^(Ô¼ 3.9 GB^) ...
+    powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-models.ps1"
+    set HAVE_AI=1
+    if not exist "%ENGINE%" set HAVE_AI=0
+    if not exist "%MODEL%"  set HAVE_AI=0
+    if not exist "%MMPROJ%" set HAVE_AI=0
+    if "!HAVE_AI!"=="1" (
+      echo [ÏÂÔØ] Íê³É, ¼ÌĞøÆô¶¯¡£
     ) else (
-      echo [å¼•æ“] æ˜¾å­˜å……è¶³ (%FREEGB%MB), å…¨ GPU åŠ é€Ÿ
+      echo [ÌáÊ¾] ÈÔÓĞÎÄ¼şÈ±Ê§^(¿ÉÄÜÊÇÍøÂçÖĞ¶Ï^)¡£ÉÔºó¿ÉÖØÅÜ:
+      echo          powershell -ExecutionPolicy Bypass -File tools\fetch-models.ps1
+      echo        ÏÖÒÔ"×îĞ¡°æ"Æô¶¯¡£
     )
+    echo.
   )
-  echo [å¼•æ“] å¯åŠ¨ llama.cpp æ¨ç†å¼•æ“...
-  start "llama-engine-8080" /min "%APP%\llama\llama-server.exe" -m "%MODEL%" --mmproj "%MMPROJ%" --host 127.0.0.1 --port 8080 -ngl %NGL% -c 8192 --jinja
-  rem ç­‰å¾…å¼•æ“å°±ç»ª(å†·å¯åŠ¨ä¸€èˆ¬ 4-30 ç§’, é¦–æ¬¡å«ç¼“å­˜ç¼–è¯‘å¯èƒ½æ›´ä¹…)
-  set /a n=0
-  :wait_engine
-  curl -s --max-time 2 http://127.0.0.1:8080/health | findstr "ok" >nul
-  if %errorlevel%==0 goto engine_ok
-  set /a n+=1
-  if %n% gtr 90 ( echo [è­¦å‘Š] å¼•æ“ç­‰å¾…è¶…æ—¶, ç»§ç»­å°è¯•å¯åŠ¨ç½‘é¡µ... & goto web_start )
-  timeout /t 2 /nobreak >nul
-  goto wait_engine
-  :engine_ok
-  echo [å¼•æ“] å°±ç»ª (è€—æ—¶çº¦ %n% x2 ç§’)
+  if "!CHOICE!"=="3" (
+    endlocal
+    exit /b 0
+  )
+)
+
+rem ---------- 1. ÍÆÀíÒıÇæ (8080) ----------
+if "%HAVE_AI%"=="1" (
+  netstat -ano | findstr ":8080 " | findstr "LISTENING" >nul
+  if errorlevel 1 (
+    set NGL=99
+    for /f "tokens=2 delims=," %%a in ('nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2^>nul') do set FREEGB=%%a
+    if defined FREEGB (
+      if !FREEGB! LSS 4500 (
+        set NGL=25
+        echo [ÒıÇæ] ÏÔ´æ½ö !FREEGB!MB, ½µ¼¶ GPU ²ãÊı ^(-ngl 25^), ËÙ¶È»á±äÂı
+      ) else (
+        echo [ÒıÇæ] ÏÔ´æ³ä×ã ^(!FREEGB!MB^), È« GPU ¼ÓËÙ
+      )
+    )
+    echo [ÒıÇæ] Æô¶¯ llama.cpp ÍÆÀíÒıÇæ ...
+    start "llama-engine-8080" /min "%ENGINE%" -m "%MODEL%" --mmproj "%MMPROJ%" --host 127.0.0.1 --port 8080 -ngl !NGL! -c 8192 --jinja
+    set /a n=0
+    :wait_engine
+    curl -s --max-time 2 http://127.0.0.1:8080/health | findstr "ok" >nul
+    if not errorlevel 1 goto engine_ok
+    set /a n+=1
+    if !n! gtr 90 ( echo [¾¯¸æ] ÒıÇæµÈ´ı³¬Ê±, ¼ÌĞøÆô¶¯ÍøÒ³ ... & goto web_start )
+    timeout /t 2 /nobreak >nul
+    goto wait_engine
+    :engine_ok
+    echo [ÒıÇæ] ¾ÍĞ÷
+  ) else (
+    echo [ÒıÇæ] 8080 ÒÑÔÚÔËĞĞ
+  )
+) else (
+  echo [ÒıÇæ] ÒÑÌø¹ı ^(Î´°²×° AI^) ¡ª¡ª ½çÃæ/´ÊÊé/Ä¬Ğ´¿ÉÓÃ, ÌáÁ¶ÓëÍ¼Æ¬Ê¶±ğ²»¿ÉÓÃ
 )
 
 :web_start
-rem 2. å¯åŠ¨ç½‘é¡µæœåŠ¡ (8804)
+rem ---------- 2. ÍøÒ³·şÎñ (8804) ----------
 netstat -ano | findstr ":8804 " | findstr "LISTENING" >nul
-if %errorlevel%==0 (
-  echo [ç½‘é¡µ] 8804 å·²åœ¨è¿è¡Œ
-) else (
-  echo [ç½‘é¡µ] å¯åŠ¨æœ¬åœ°æœåŠ¡ http://127.0.0.1:8804
-  start "english-study-8804" /min cmd /c "cd /d %APP% && node server.js"
+if errorlevel 1 (
+  echo [ÍøÒ³] Æô¶¯±¾µØ·şÎñ http://127.0.0.1:8804
+  start "english-study-8804" /min cmd /c "cd /d "%APP%" && node server.js"
   timeout /t 2 /nobreak >nul
+) else (
+  echo [ÍøÒ³] 8804 ÒÑÔÚÔËĞĞ
 )
+
 start http://127.0.0.1:8804
-echo [å®Œæˆ] å·²æ‰“å¼€: http://127.0.0.1:8804
+echo.
+echo [Íê³É] ÒÑ´ò¿ª: http://127.0.0.1:8804
+echo        Í£Ö¹: ¹Ø±Õµ¯³öµÄÁ½¸ö´°¿Ú^(ÒıÇæ/·şÎñ^), »òÔÚ´Ë°´ÈÎÒâ¼üÍË³ö±¾´°¿Ú¡£
+pause >nul
 endlocal
