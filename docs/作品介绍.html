@@ -139,6 +139,19 @@
 <b>sha256 逐字节校验</b>从上游获取；无模型时软件仍可启动（界面、词书、默写、记忆层全部可用）。
 </p>
 
+<h3>2.5 交付形态：封装桌面软件，开箱即用</h3>
+<p>本项目<b>最终以封装好的桌面软件交付</b>，而不是一个"装了环境才能跑"的源码包——这是面向学生与老师的第一原则。</p>
+<table>
+<tr><th style="width:32%">用户以为要做的事</th><th>实际情况</th></tr>
+<tr><td>安装 Node.js / Python</td><td><b>不需要</b>——分发包内已内置运行时（<code>runtime\win\node.exe</code>、<code>runtime\python\python.exe</code>）</td></tr>
+<tr><td>下载 AI 模型</td><td><b>不需要</b>——约 3.9 GB 的 Gemma 4 权重与视觉模块已随包提供</td></tr>
+<tr><td>安装推理引擎、配环境变量</td><td><b>不需要</b>——llama.cpp 引擎与所需运行库已在包内</td></tr>
+<tr><td>用命令行启动</td><td><b>不需要</b>——Windows 双击 <code>英语背诵工具.exe</code>（WebView2 桌面壳）；macOS 双击 <code>英语背诵工具.app</code></td></tr>
+<tr><td>联网激活 / 注册账号</td><td><b>不需要</b>——全程离线，无账号、无 API Key、无调用费用</td></tr>
+</table>
+<p>分发包为<b>单文件夹、免安装</b>（约 6.9 GB）：<code>app/</code>（服务与前端）· <code>engine/</code> 与 <code>app/llama/</code>（推理引擎）· <code>models/</code>（模型权重）· <code>runtime/</code>（内置 Node / Python 运行时）· <code>data/</code>（词书）· <code>scripts/</code>（OCR / PDF / 词书构建脚本），并含 Windows 启动器 <code>英语背诵工具.exe</code> 与 macOS <code>英语背诵工具.app</code>。</p>
+<p>同时，源码以 Apache-2.0 开源：开发者可 clone 仓库自行构建，仓库内附模型与引擎的获取脚本（含 <b>sha256 逐字节校验</b>与断点续传）；未安装 Python、未放模型时软件仍可启动并<b>自动降级</b>运行（界面、词书、默写、记忆层全部可用）。换言之——<b>普通用户拿到的是软件，开发者拿到的是源码。</b></p>
+
 <div class="pagebreak"></div>
 <h2>三、应用场景</h2>
 <p class="sub">本项目全部场景的共同点是：<b>把"提炼"交到学生自己手上</b>，材料不限、分层按己、全程离线。</p>
@@ -193,8 +206,9 @@
 <b>不足</b>：大量内容与学生个人兴趣无关，靠打卡维持，难以长期坚持。<br>
 <b>本项目</b>：学生可<b>自选感兴趣的题材</b>作为阅读材料，同一套提炼与记忆机制照常运转——把"要我背"变成"我想读"。学习最难的不是方法，而是持续。</p>
 
-<h3>4.6 面向非技术用户的"最后一公里"</h3>
-<p>Windows（WebView2 壳）/ macOS（.app）桌面端、一键启动脚本（含显存自检与自动降级）、单文件夹一体化分发；模型与引擎的获取脚本内建 <b>sha256 逐字节校验</b>与断点续传；无 Python、无模型、无引擎时软件仍能启动并降级运行——目标是让不写代码的老师也能装上就用。</p>
+<h3>4.6 封装交付：不写代码的人也能直接用</h3>
+<p><b>已有方案</b>：多数同类开源 AI 项目以"源码 + 安装说明"交付，使用者需要自己装运行时、配环境、下模型——这直接把最需要工具的学生与老师挡在门外。<br>
+<b>本项目</b>：以<b>封装好的桌面软件</b>为交付形态——分发包内已内置 Node / Python 运行时、约 3.9 GB 的模型权重、llama.cpp 引擎与全部词书，<b>单文件夹免安装、双击即用、全程离线、无需账号</b>；Windows 提供 WebView2 桌面壳（<code>英语背诵工具.exe</code>），macOS 提供原生 <code>.app</code>。源码同时以 Apache-2.0 开源，开发者可自行构建并复用其记忆内核与词书流水线。</p>
 
 <div class="pagebreak"></div>
 <h2>五、功能完成度与未实现说明</h2>
