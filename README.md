@@ -7,7 +7,7 @@
 
 **全程离线运行，学习数据不出机器。** 无需联网、无需 API Key、无调用费用。
 
-`Apache-2.0` · `Node.js 零依赖后端` · `llama.cpp 端侧推理` · `Gemma 4 (Apache-2.0)`
+`AGPL-3.0` · `Node.js 零依赖后端` · `llama.cpp 端侧推理` · `Gemma 4 (Apache-2.0)`
 
 ---
 
@@ -169,7 +169,9 @@ THIRD_PARTY_NOTICES.md   # 第三方组件与许可（逐条实测上游 LICENSE
 
 ## 许可与第三方
 
-- 本项目代码：**Apache-2.0**（见 [LICENSE](LICENSE) / [NOTICE](NOTICE)）
+- 本项目代码：**AGPL-3.0**（SPDX: `AGPL-3.0-only`，见 [LICENSE](LICENSE) / [NOTICE](NOTICE)）
+- **双授权**：如需在闭源商业产品中使用（含上架应用商店、提供网络服务），可另行取得商业授权
+- **名称与标识**（项目名 / 图标）**保留所有权利**，不随代码许可授权
 - 第三方组件与各自许可、再分发义务：**[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)**
   （Gemma 4 = Apache-2.0 · llama.cpp = MIT · PaddleOCR/PaddleX/RapidOCR = Apache-2.0 · ECDICT / moread-content / Words-CEFR-Dataset = MIT · Lucide = ISC）
 - 模型权重与推理引擎**不随仓库分发**（体积原因），由 `tools/` 下脚本从上游获取
