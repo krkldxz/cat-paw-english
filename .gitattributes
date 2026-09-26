@@ -1,0 +1,16 @@
+# 统一行尾: 仓库内存 LF, 检出时按平台自动转换
+# 不加这个文件, Windows 克隆出来的工作区是 CRLF, 与源目录逐字节比对会"看起来全都不一样"
+* text=auto eol=lf
+
+# 明确二进制, 避免被当文本处理
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.onnx binary
+*.gguf binary
+*.zip binary
+*.pdf binary
+*.exe binary
+*.dll binary
