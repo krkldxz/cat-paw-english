@@ -405,19 +405,36 @@ async function setPrimaryBook(id) {
   showStatus('主词书已切换：' + (BOOK_CACHE.filter(function (b) { return b.id === id; })[0] || {}).name);
   await openSide();
 }
+// ArrayBuffer → base64 (分块, 避免大文件 spread 爆栈)
+function bufToB64(buf) {
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  const CH = 32768;
+  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(s);
+}
 async function importBookFile(file) {
-  const text = await file.text();
-  const name = file.name.replace(/\.(json|txt|csv)$/i, '').trim() || '导入词书';
-  const r = await (await fetch('/api/books/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, filename: file.name, content: text }) })).json();
+  const base = file.name.replace(/\.(json|txt|csv|pdf)$/i, '').trim() || '导入词书';
+  let payload;
+  if (/\.pdf$/i.test(file.name)) {
+    showStatus('正在解析 PDF「' + file.name + '」…（大文件可能需要十几秒）');
+    const buf = await file.arrayBuffer();
+    payload = { name: base, filename: file.name, pdfBase64: bufToB64(buf) };
+  } else {
+    const text = await file.text();
+    payload = { name: base, filename: file.name, content: text };
+  }
+  const r = await (await fetch('/api/books/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })).json();
   if (!r.ok) throw new Error(r.error || '导入失败');
   await refreshBooks();
-  showStatus('已导入「' + r.name + '」' + r.wordCount + ' 词');
+  const extra = (r.fromPdf && r.pdfStats) ? '（PDF ' + r.pdfStats.pages + ' 页）' : '';
+  showStatus('已导入「' + r.name + '」' + r.wordCount + ' 词' + extra);
   await openSide();
 }
 function pickBookFile() {
   const inp = document.createElement('input');
   inp.type = 'file';
-  inp.accept = '.json,.txt,.csv,application/json,text/plain';
+  inp.accept = '.json,.txt,.csv,.pdf,application/json,text/plain,application/pdf';
   inp.addEventListener('change', async function () {
     const f = inp.files && inp.files[0];
     if (!f) return;
@@ -481,8 +498,8 @@ async function openSide() {
         + '<div class="book-card-go">翻看 →</div></div>';
     }).join('');
     box.innerHTML = '<div class="learn-entry" id="learnEntry">' + icon('book-marked') + ' 错题本 ' + learnCount + ' 词 [查看]</div>'
-      + '<div class="learn-entry" id="addBook">' + icon('plus') + ' 添加词书（JSON 词书 / 纯文本词表）</div>'
-      + '<div class="book-hint">文本格式：每行一个词，可用 制表符 / 多个空格 / 冒号 分隔释义；文件名即词书名</div>'
+      + '<div class="learn-entry" id="addBook">' + icon('plus') + ' 添加词书（PDF / JSON / 文本）</div>'
+      + '<div class="book-hint">支持 PDF 词汇手册 · JSON 词书 · 纯文本词表（每行一个词，制表符/多空格/冒号分隔释义）；文件名即词书名</div>'
       + '<div class="side-sec">词书库（点击翻看 · ★ = 主词书 · 词条可点右侧徽标切换掌握状态）</div>'
       + (cards || '无可用的词书');
     box.querySelectorAll('.book-card').forEach(card => card.addEventListener('click', e => {

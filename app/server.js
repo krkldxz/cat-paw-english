@@ -243,6 +243,42 @@ function parseTextWordList(text) {
   return words;
 }
 
+// 从 PDF 词汇手册导入词书: 接收 base64 → 临时文件 → scripts/book_from_pdf.py → 复用 importBook
+async function importBookFromPdf(payload) {
+  if (!PY_RESOLVED) throw new Error('本机未找到 Python, PDF 解析不可用 (可改用 JSON 词书或纯文本词表)');
+  const b64 = String(payload.pdfBase64 || '').replace(/^data:application\/pdf;base64,/, '');
+  if (!b64) throw new Error('缺少 PDF 内容');
+  const tmpDir = path.join(ROOT, '..', 'tmp');
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const pdfPath = path.join(tmpDir, 'book_' + stamp + '.pdf');
+  const outPath = path.join(tmpDir, 'book_' + stamp + '.json');
+  fs.writeFileSync(pdfPath, Buffer.from(b64, 'base64'));
+  try {
+    const { execFile } = require('child_process');
+    const script = path.join(__dirname, '..', 'scripts', 'book_from_pdf.py');
+    await new Promise((ok, no) => {
+      execFile(PY_RESOLVED, [script, pdfPath, '--max', '20000', '--out', outPath], { timeout: 240000, maxBuffer: 1 << 26 },
+        (err, so, se) => err ? no(new Error('解析失败: ' + String(se || err.message).slice(0, 200))) : ok());
+    });
+    if (!fs.existsSync(outPath)) throw new Error('解析未产出结果');
+    const parsed = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    if (parsed.type === 'scan') throw new Error('这是扫描版 PDF(没有文字层), 无法直接解析 —— 请改用「拍照」逐页识别, 或换文字版 PDF');
+    if (parsed.type !== 'ok' || !(parsed.words || []).length) throw new Error('没从 PDF 里解析出词条: ' + (parsed.reason || '未知原因'));
+    const name = String(payload.name || '').trim() || String(payload.filename || 'PDF 词书').replace(/\.pdf$/i, '');
+    const r = importBook({
+      name: name, words: parsed.words,
+      source: 'PDF 导入: ' + String(payload.filename || ''), license: '用户自备',
+    });
+    const st = parsed.stats || {};
+    console.log('[词书] PDF 导入 | ' + r.name + ' | ' + r.wordCount + ' 词 (页数 ' + st.pages + ', 来源 ' + st.used + ')');
+    r.pdfStats = st;
+    return r;
+  } finally {
+    try { fs.unlinkSync(pdfPath); } catch (e) {}
+    try { fs.unlinkSync(outPath); } catch (e) {}
+  }
+}
 // 添加词书: 支持 JSON 词书 / 纯文本词表, 写入 data/books/<id>.json
 function importBook(payload) {
   const name = String(payload.name || '').trim() || '导入词书';
@@ -1599,13 +1635,14 @@ const server = http.createServer(async (req, res) => {
   // API: 添加词书 (JSON 词书 / 纯文本词表)
   if (url.pathname === '/api/books/import' && req.method === 'POST') {
     let body = '';
-    req.on("data", c => { body += c; if (body.length > 8000000) req.destroy(); });
-    req.on("end", () => {
+    req.on("data", c => { body += c; if (body.length > 60000000) req.destroy(); }); // PDF(base64) 可较大
+    req.on("end", async () => {
       try {
         const payload = JSON.parse(body || "{}");
-        const r = importBook(payload);
+        const isPdf = (payload.pdfBase64 && String(payload.pdfBase64).length > 100) || /\.pdf$/i.test(String(payload.filename || ""));
+        const r = isPdf ? await importBookFromPdf(payload) : importBook(payload);
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ ok: true, id: r.id, name: r.name, wordCount: r.wordCount, books: [...BOOKS.values()].map(bookBrief) }));
+        res.end(JSON.stringify({ ok: true, id: r.id, name: r.name, wordCount: r.wordCount, fromPdf: !!isPdf, pdfStats: r.pdfStats || null, books: [...BOOKS.values()].map(bookBrief) }));
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
