@@ -13,39 +13,9 @@ const LLAMA_URL = `http://127.0.0.1:${ENGINE_PORT}`;
 const OLLAMA_URL = 'http://127.0.0.1:11434/api/chat';
 const ROOT = __dirname;
 
-// ===== 词书加载 (M-A: 上海高考词汇手册) =====
-let BOOK = null;
-try {
-  BOOK = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'data', '词书-上海高考.json'), 'utf8'));
-  console.log(`[词书] ${BOOK.name} | 单词 ${BOOK.word_count} / 词组 ${BOOK.phrase_count}`);
-} catch (e) {
-  console.log('[词书] 上海高考词书未随仓库分发(版权原因, 可选) - 可用侧栏添加词书导入自有词书');
-}
+// ===== 上海考纲词书已按版权要求移除: 不再内置、不再加载 (需要时用「添加词书」自行导入自有词书) =====
+const BOOK = null;
 
-function buildBookIndex(book) {
-  const info = {}; // lowerWord -> 词书条目
-  if (!book) return { info: {}, phraseKeys: new Set() };
-  for (const it of book.words || []) {
-    const w = String(it.word || '').trim();
-    if (!w) continue;
-    const lower = w.toLowerCase();
-    const main = lower.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
-    if (main && !info[main]) info[main] = it;
-    if (!info[lower]) info[lower] = it;
-    const inners = lower.match(/\(([^)]+)\)/g) || [];
-    for (const m of inners) {
-      const t = m.slice(1, -1).toLowerCase().trim();
-      if (t && !t.includes(' ') && !info[t]) info[t] = it;
-    }
-  }
-  const phraseKeys = new Set();
-  for (const p of book.phrases || []) {
-    const s = String(p.phrase || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
-    if (s) phraseKeys.add(s);
-    phraseKeys.add(String(p.phrase || '').toLowerCase().trim());
-  }
-  return { info, phraseKeys };
-}
 const BOOK_INDEX = buildBookIndex(BOOK);
 const normPhrase = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
 
@@ -86,7 +56,7 @@ function writeSettings(patchObj) {
   return next;
 }
 const BOOKS = new Map(); // id -> 记录
-let PRIMARY_ID = 'sh';
+let PRIMARY_ID = '';
 function slugId(s) {
   const t = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return t || '';
@@ -116,7 +86,6 @@ function registerBook(id, book, kind, origin, file, short) {
   return rec;
 }
 const BUILTIN_BOOKS = [
-  { id: 'sh', file: '词书-上海高考.json', kind: 'kaogang', short: '考纲' },
   { id: 'cefr', file: '词书-CEFR.json', kind: 'cefr', short: 'CEFR' },
   { id: 'cet4', file: '词书-CET4.json', kind: 'cet', short: 'CET4' },
   { id: 'cet6', file: '词书-CET6.json', kind: 'cet', short: 'CET6' }
@@ -161,7 +130,7 @@ function loadAllBooks() {
     }
   } catch (e) { console.log('[词书] 用户词书目录读取失败:', e.message); }
   const st = readSettings();
-  const want = (st.primaryBook && BOOKS.has(st.primaryBook)) ? st.primaryBook : (BOOKS.has('sh') ? 'sh' : (BOOKS.keys().next().value || ''));
+  const want = (st.primaryBook && BOOKS.has(st.primaryBook)) ? st.primaryBook : (BOOKS.has('gk') ? 'gk' : (BOOKS.keys().next().value || ''));
   PRIMARY_ID = want;
   const p = BOOKS.get(PRIMARY_ID);
   if (p) console.log('[词书] 主词书 = ' + PRIMARY_ID + ' (' + p.name + ')');
@@ -731,12 +700,12 @@ function buildSystemPrompt(grade) {
 }
 
 // 优先 llama-server (OpenAI 兼容), 不可用则回退 Ollama
-async function llamaChat(messages) {
+async function llamaChat(messages, opts) {
   try {
     const r = await fetch(`${LLAMA_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gemma', messages, stream: false, temperature: 0.2, max_tokens: 2000, chat_template_kwargs: { enable_thinking: false } })
+      body: JSON.stringify({ model: 'gemma', messages, stream: false, temperature: (opts && opts.temperature != null) ? opts.temperature : 0.2, max_tokens: (opts && opts.maxTokens) || 2000, chat_template_kwargs: { enable_thinking: false } })
     });
     if (!r.ok) throw new Error('llama-server HTTP ' + r.status);
     const d = await r.json();
@@ -825,14 +794,14 @@ async function ocrImage(fpath, ext) {
   return out;
 }
 
-async function extractFromText(text, grade) {
+async function extractFromText(text, grade, opts) {
   const messages = [
     { role: 'system', content: buildSystemPrompt(grade) },
     { role: 'user', content: '以下是课文文本：\n' + text }
   ];
   // 尝试内置引擎, 失败自动回退 Ollama
   try {
-    return await llamaChat(messages);
+    return await llamaChat(messages, { maxTokens: (opts && opts.maxTokens) || 4500, temperature: 0.1 });
   } catch (e) {
     console.log('[engine] llama-server 失败, 回退 Ollama:', e.message);
     return await ollamaChat(messages);
@@ -853,16 +822,56 @@ function splitText(text) {
   if (cur) chunks.push(cur);
   return chunks;
 }
+// 模型输出可能被 max_tokens 截断 / 夹带说明文字 → 逐级修复后再解析
+function parseModelJson(content) {
+  const clean = s => String(s || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const tryParse = s => { try { return JSON.parse(s); } catch (e) { return null; } };
+  let t = clean(content);
+  let r = tryParse(t);
+  if (r) return r;
+  const brace = t.indexOf('{');
+  if (brace > 0) t = t.slice(brace);
+  const end = t.lastIndexOf('}');
+  if (end >= 0) { r = tryParse(t.slice(0, end + 1)); if (r) return r; }
+  const scan = s => {
+    const st = []; let inStr = false, esc = false, lastSafe = -1;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) { if (esc) esc = false; else if (ch === String.fromCharCode(92)) esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === "{" || ch === "[") st.push(ch === "{" ? "}" : "]");
+      else if (ch === "}" || ch === "]") { st.pop(); lastSafe = i; }
+      else if (ch === "," && st.length) lastSafe = i;
+    }
+    return { st: st, inStr: inStr, lastSafe: lastSafe };
+  };
+  let head = t;
+  for (let round = 0; round < 6; round++) {
+    const info = scan(head);
+    if (info.lastSafe < 0) break;
+    const cutAt = head.slice(0, info.lastSafe + 1).replace(/,\s*$/, "");
+    const info2 = scan(cutAt);
+    const fixed = cutAt + (info2.inStr ? '"' : "") + info2.st.slice().reverse().join("");
+    r = tryParse(fixed);
+    if (r) return r;
+    const idx = cutAt.lastIndexOf("},");
+    if (idx < 0) break;
+    head = cutAt.slice(0, idx + 1);
+  }
+  return null;
+}
 async function extractData(text, grade) {
   const chunks = splitText(text);
   if (chunks.length === 1) {
-    const content = await extractFromText(text, grade);
-    try { return JSON.parse(content); }
-    catch (e) {
-      const m = content.match(/\{[\s\S]*\}/);
-      if (m) return JSON.parse(m[0]);
-      throw new Error('模型输出非 JSON: ' + content.slice(0, 200));
+    let content = await extractFromText(text, grade);
+    let d = parseModelJson(content);
+    if (!d) {
+      console.log('[extract] JSON 解析失败(输出可能被截断), 提高 token 预算重试一次...');
+      content = await extractFromText(text, grade, { maxTokens: 6000 });
+      d = parseModelJson(content);
     }
+    if (!d) throw new Error('模型输出无法解析为 JSON(已自动重试一次): ' + String(content).slice(0, 200));
+    return d;
   }
   // 多块: 逐块提取后合并
   const merged = { vocabulary: [], phrases: [], golden_sentences: [], collocations: [], grammar: [] };
@@ -870,7 +879,8 @@ async function extractData(text, grade) {
   for (let i = 0; i < chunks.length; i++) {
     const content = await extractFromText(chunks[i], grade);
     let d;
-    try { d = JSON.parse(content); } catch (e) { const m = content.match(/\{[\s\S]*\}/); if (m) d = JSON.parse(m[0]); else continue; }
+    d = parseModelJson(content);
+    if (!d) { console.log('[extract] 第 ' + (i + 1) + ' 块解析失败, 跳过该块'); continue; }
     for (const v of d.vocabulary || []) { const k = kwS(v.word); if (!seenW.has(k)) { seenW.add(k); merged.vocabulary.push(v); } }
     for (const p of d.phrases || []) { const k = kwS(p.phrase); if (!seenP.has(k)) { seenP.add(k); merged.phrases.push(p); } }
     for (const s of d.golden_sentences || []) { const k = kwS(s.sentence); if (!seenS.has(k)) { seenS.add(k); merged.golden_sentences.push(s); } }
@@ -1251,17 +1261,13 @@ async function refineHeadTail(src, text) {
 // 干扰义池: 从词书随机抽释义, 供英译中四选一当错误选项
 function makeDistractors() {
   const pool = [];
-  if (BOOK) {
-    const ws = BOOK.words || [];
-    for (let i = 0; i < 40 && ws.length; i++) {
-      const w = ws[Math.floor(Math.random() * ws.length)];
-      if (w.meaning) pool.push(String(w.meaning).slice(0, 40));
-    }
-    const ps = BOOK.phrases || [];
-    for (let i = 0; i < 20 && ps.length; i++) {
-      const p = ps[Math.floor(Math.random() * ps.length)];
-      if (p.meaning) pool.push(String(p.meaning).slice(0, 40));
-    }
+  // 干扰义池: 从注册表里任意词书随机抽 (不再依赖上海考纲)
+  const poolBooks = [...BOOKS.values()].filter(b => ((b.book || {}).words || []).length);
+  for (let i = 0; i < 50 && poolBooks.length; i++) {
+    const bk = poolBooks[Math.floor(Math.random() * poolBooks.length)];
+    const ws = bk.book.words || [];
+    const w = ws[Math.floor(Math.random() * ws.length)];
+    if (w && w.meaning) pool.push(String(w.meaning).replace(/\n/g, '；').slice(0, 40));
   }
   if (CET4) {
     const ws = CET4.book.words || [];

@@ -451,10 +451,8 @@ async function openSide() {
       return `<label class="pick-item${checked ? ' on' : ''}" data-id="${b.id}">
         <input type="checkbox" ${checked ? 'checked' : ''}> <b>${esc(b.name.split('(')[0].slice(0, 14))}</b><i>${tag}</i></label>`;
     }).join('');
-    pick.querySelectorAll('.pick-item').forEach(it => it.addEventListener('click', e => {
-      if (e.target.tagName === 'INPUT') return; // 让 checkbox 原生触发 change
-      const cb = it.querySelector('input'); cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
-    }));
+    // 注: .pick-item 是 <label>, 点击标签原生即切换内部 checkbox ——
+    // 早先这里又手动切换一次, 导致"点标签=切两次=勾不掉"。原生行为已足够, 故删去手动切换。
     pick.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => {
       const ids = [...pick.querySelectorAll('input:checked')].map(c => c.closest('.pick-item').dataset.id);
       if (ids.length > 3) { cb.checked = false; showStatus('最多选 3 本词书', true); return; }
