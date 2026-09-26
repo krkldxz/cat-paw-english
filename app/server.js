@@ -16,6 +16,31 @@ const ROOT = __dirname;
 // ===== 上海考纲词书已按版权要求移除: 不再内置、不再加载 (需要时用「添加词书」自行导入自有词书) =====
 const BOOK = null;
 
+function buildBookIndex(book) {
+  const info = {}; // lowerWord -> 词书条目
+  if (!book) return { info: {}, phraseKeys: new Set() };
+  for (const it of book.words || []) {
+    const w = String(it.word || '').trim();
+    if (!w) continue;
+    const lower = w.toLowerCase();
+    const main = lower.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+    if (main && !info[main]) info[main] = it;
+    if (!info[lower]) info[lower] = it;
+    const inners = lower.match(/\(([^)]+)\)/g) || [];
+    for (const m of inners) {
+      const t = m.slice(1, -1).toLowerCase().trim();
+      if (t && !t.includes(' ') && !info[t]) info[t] = it;
+    }
+  }
+  const phraseKeys = new Set();
+  for (const p of book.phrases || []) {
+    const s = String(p.phrase || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+    if (s) phraseKeys.add(s);
+    phraseKeys.add(String(p.phrase || '').toLowerCase().trim());
+  }
+  return { info, phraseKeys };
+}
+
 const BOOK_INDEX = buildBookIndex(BOOK);
 const normPhrase = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
 
