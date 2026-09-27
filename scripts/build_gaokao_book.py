@@ -1,5 +1,5 @@
-# 聚合高考/中考词书: moread-content 词表(主, MIT) LEFT JOIN ECDICT(音标/释义/词性/词频标签, MIT)
-# 用途: 替代版权不明的"上海高考考纲词书"作为默认词书 —— 两份来源均为 MIT, 可随仓库分发
+﻿# 聚合高考/中考词书: moread-content 词表(主, MIT) LEFT JOIN ECDICT(音标/释义/词性/词频标签, MIT)
+# 用途: 替代版权不明的官方考纲词书作为默认词书 —— 两份来源均为 MIT, 可随仓库分发
 # 来源: tealun/moread-content vocabulary/exam/gaokao.json (3837 词) / zhongkao.json
 # 交叉校验: 与 ECDICT 自带 gk/zk 考试标签比对重合率
 import json, io, sqlite3, re, sys, unicodedata
@@ -7,7 +7,7 @@ import json, io, sqlite3, re, sys, unicodedata
 def deaccent(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
-ROOT = r'C:\Users\krkld\.openclaw\projects\english-study'
+ROOT = ROOT
 DB = ROOT + r'\data\raw\ecdict\stardict.db'
 
 def clean_translation(t):

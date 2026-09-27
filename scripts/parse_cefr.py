@@ -1,10 +1,13 @@
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 仓库根
+
 # CEFR 词表 CSV → 词书 JSON (Cambridge EVP 风格数据)
 # 结构: 按 headword 聚合, 存 min/max 级别 + 各词性条目 → 支撑熟词僻义检测
 import csv, json, sys
 sys.stdout.reconfigure(encoding='utf-8')
 
-SRC = r'C:\Users\krkld\.openclaw\projects\english-study\data\cefr_raw.csv'
-OUT = r'C:\Users\krkld\.openclaw\projects\english-study\data\词书-CEFR.json'
+SRC = os.path.join(ROOT, r'data\cefr_raw.csv')
+OUT = os.path.join(ROOT, r'data\词书-CEFR.json')
 
 LVL = {'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6}
 

@@ -1,10 +1,13 @@
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 仓库根
+
 # 生成 macOS iconset (基于 favicon.png 猫爪图, 重绘各尺寸)
 import sys, os
-sys.path.insert(0, r'C:\Users\krkld\.openclaw\projects\english-study\scripts')
+sys.path.insert(0, os.path.join(ROOT, r'scripts'))
 from PIL import Image
 
-SRC = r'C:\Users\krkld\.openclaw\projects\english-study\app\public\favicon.png'
-OUT = r'C:\Users\krkld\.openclaw\projects\english-study\build\mac-shell\AppIcon.iconset'
+SRC = os.path.join(ROOT, r'app\public\favicon.png')
+OUT = os.path.join(ROOT, r'build\mac-shell\AppIcon.iconset')
 os.makedirs(OUT, exist_ok=True)
 
 im = Image.open(SRC).convert('RGBA')

@@ -1,8 +1,11 @@
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 仓库根
+
 # 最终发布 zip: Python zipfile, UTF-8 标志正确 (mac/英文系统解压不乱码), store 压缩
 import os, sys, zipfile, time
 
-SRC = r'C:\Users\krkld\.openclaw\projects\english-study\build\dist\英语背诵工具'
-OUT = r'C:\Users\krkld\.openclaw\projects\english-study\build\英语背诵工具-一体化版.zip'
+SRC = os.path.join(ROOT, r'build\dist\英语背诵工具')
+OUT = os.path.join(ROOT, r'build\英语背诵工具-一体化版.zip')
 EXCLUDE_TOP = {'tmp'}  # 运行时缓存不进包
 
 t0 = time.time()

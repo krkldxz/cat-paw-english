@@ -1,8 +1,11 @@
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 仓库根
+
 # 生成品牌图标: 暖橙圆角底 + 白色猫爪 (favicon.ico + png 多尺寸)
 from PIL import Image, ImageDraw
 import os
 
-OUT = r'C:\Users\krkld\.openclaw\projects\english-study\app\public'
+OUT = os.path.join(ROOT, r'app\public')
 os.makedirs(OUT, exist_ok=True)
 
 def draw_paw(size=256, aa=4):
@@ -37,6 +40,6 @@ im256.save(os.path.join(OUT, 'favicon.png'))
 im256.save(os.path.join(OUT, 'favicon.ico'),
            format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 # exe 用的 ico (csc /win32icon)
-im256.save(r'C:\Users\krkld\.openclaw\projects\english-study\build\app.ico',
+im256.save(os.path.join(ROOT, r'build\app.ico'),
            format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
 print('icons written')

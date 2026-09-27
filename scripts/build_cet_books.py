@@ -4,7 +4,7 @@ import json, io, sqlite3, re, sys, unicodedata
 def deaccent(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
-ROOT = r'C:\Users\krkld\.openclaw\projects\english-study'
+ROOT = ROOT
 DB = ROOT + r'\data\raw\ecdict\stardict.db'
 
 def clean_translation(t):

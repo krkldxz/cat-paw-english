@@ -1,3 +1,6 @@
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 仓库根
+
 import struct, sys
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -40,7 +43,7 @@ def gguf_meta(path, want=('general.name', 'general.architecture', 'mmproj.projec
             out[k] = str(v)[:400]
     return out
 
-base = r'C:\Users\krkld\.openclaw\projects\english-study\models'
+base = os.path.join(ROOT, r'models')
 for m in ['gemma-4-E2B-it-Q4_K_M.gguf', 'gemma-4-E2B-mmproj-F16.gguf']:
     print('=====', m)
     try:
