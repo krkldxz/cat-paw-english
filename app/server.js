@@ -1,4 +1,4 @@
-// 英语背诵工具 - 本地后端 v1
+﻿// 英语背诵工具 - 本地后端 v1
 // 零依赖 Node: 静态托管 + /api/extract (文本 → gemma4 五板块提取)
 // 启动: node server.js  →  http://127.0.0.1:8804
 const http = require('http');
@@ -13,7 +13,7 @@ const LLAMA_URL = `http://127.0.0.1:${ENGINE_PORT}`;
 const OLLAMA_URL = 'http://127.0.0.1:11434/api/chat';
 const ROOT = __dirname;
 
-// ===== 上海考纲词书已按版权要求移除: 不再内置、不再加载 (需要时用「添加词书」自行导入自有词书) =====
+// ===== 官方考纲词书已按版权要求移除: 不再内置、不再加载 (需要时用「添加词书」自行导入自有词书) =====
 const BOOK = null;
 
 function buildBookIndex(book) {
@@ -1322,7 +1322,7 @@ async function refineHeadTail(src, text) {
 // 干扰义池: 从词书随机抽释义, 供英译中四选一当错误选项
 function makeDistractors() {
   const pool = [];
-  // 干扰义池: 从注册表里任意词书随机抽 (不再依赖上海考纲)
+  // 干扰义池: 从注册表里任意词书随机抽 (不再依赖特定考纲词书)
   const poolBooks = [...BOOKS.values()].filter(b => ((b.book || {}).words || []).length);
   for (let i = 0; i < 50 && poolBooks.length; i++) {
     const bk = poolBooks[Math.floor(Math.random() * poolBooks.length)];
