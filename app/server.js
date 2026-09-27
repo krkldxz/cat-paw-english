@@ -161,9 +161,22 @@ function loadAllBooks() {
   if (p) console.log('[词书] 主词书 = ' + PRIMARY_ID + ' (' + p.name + ')');
 }
 function primaryIndex() { const p = BOOKS.get(PRIMARY_ID); return p ? p.index : BOOK_INDEX; }
+// 停用列表: 内置词书可"停用"(不删数据, 可恢复)
+function hiddenSet() {
+  const s = readSettings();
+  return new Set(Array.isArray(s.hiddenBooks) ? s.hiddenBooks : []);
+}
+function isHidden(id) { return hiddenSet().has(id); }
+function setHidden(id, hidden) {
+  const cur = [...hiddenSet()];
+  const next = hidden ? Array.from(new Set(cur.concat([id]))) : cur.filter(x => x !== id);
+  writeSettings({ hiddenBooks: next });
+  return next;
+}
 function bookBrief(rec) {
   return { id: rec.id, name: rec.name, wordCount: rec.wordCount, phraseCount: rec.phraseCount,
     kind: rec.kind, primary: rec.id === PRIMARY_ID, removable: rec.origin === "user",
+    hideable: rec.origin !== "user", hidden: isHidden(rec.id),
     source: rec.source || "", license: rec.license || "" };
 }
 
@@ -1680,7 +1693,14 @@ const server = http.createServer(async (req, res) => {
         const { id } = JSON.parse(body || "{}");
         const rec = BOOKS.get(id);
         if (!rec) throw new Error("词书不存在: " + id);
-        if (rec.origin !== "user") throw new Error("内置词书不可删除");
+        if (rec.id === PRIMARY_ID) throw new Error("不能删除主词书, 请先切换主词书");
+        if (rec.origin !== "user") {
+          // 内置词书: 停用(不删数据, 可恢复)
+          setHidden(rec.id, true);
+          res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+          return res.end(JSON.stringify({ ok: true, hidden: true, id: rec.id,
+            primary: PRIMARY_ID, books: [...BOOKS.values()].map(bookBrief) }));
+        }
         const f = path.join(USER_BOOK_DIR, path.basename(rec.file));
         if (fs.existsSync(f)) fs.unlinkSync(f);
         loadAllBooks();
@@ -1693,6 +1713,25 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
+  // API: 恢复被停用的词书
+  if (url.pathname === '/api/books/restore' && req.method === 'POST') {
+    let body = '';
+    req.on("data", c => { body += c; });
+    req.on("end", () => {
+      try {
+        const { id } = JSON.parse(body || "{}");
+        if (!BOOKS.get(id)) throw new Error("词书不存在: " + id);
+        setHidden(id, false);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: true, primary: PRIMARY_ID, books: [...BOOKS.values()].map(bookBrief) }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
   // API: 词书词条 (任意词书 id, ?q=搜索词&letter=A)
   if (url.pathname.startsWith('/api/book/') && req.method === 'GET') {
     const id = decodeURIComponent(url.pathname.slice('/api/book/'.length));

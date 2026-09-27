@@ -446,7 +446,14 @@ async function deleteBook(id) {
   const r = await (await fetch('/api/books/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })).json();
   if (!r.ok) throw new Error(r.error || '删除失败');
   await refreshBooks();
-  showStatus('已删除词书 ' + id);
+  showStatus(r.hidden ? ('已停用词书 ' + id + '（可恢复）') : ('已删除词书 ' + id));
+  await openSide();
+}
+async function restoreBook(id) {
+  const r = await (await fetch('/api/books/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })).json();
+  if (!r.ok) throw new Error(r.error || '恢复失败');
+  await refreshBooks();
+  showStatus('已恢复词书 ' + id);
   await openSide();
 }
 function saveBooks(list) { localStorage.setItem('es_books', JSON.stringify(list)); }
@@ -462,7 +469,7 @@ async function openSide() {
   try {
     const j = await refreshBooks();
     const cur = activeBooks();
-    pick.innerHTML = (j.books || []).map(b => {
+    pick.innerHTML = (j.books || []).filter(b => !b.hidden).map(b => {
       const checked = cur.includes(b.id);
       const tag = b.primary ? '主词书' : (b.kind === 'cet' ? '四六级' : (b.kind === 'cefr' ? '分级' : '词书'));
       return `<label class="pick-item${checked ? ' on' : ''}" data-id="${b.id}">
@@ -480,7 +487,7 @@ async function openSide() {
     // 词书库列表
     const box = $('#bookList');
     const learnCount = Object.values(getMem()).filter(r => r.seen && !r.master).length;
-    const cards = (j.books || []).map(b => {
+    const cards = (j.books || []).filter(b => !b.hidden).map(b => {
       const st = memStats(b.wordCount);
       const prog = b.primary
         ? '<div class="book-prog"><div class="book-prog-bar"><i style="width:' + st.pct + '%"></i></div><span class="book-prog-txt">掌握 ' + st.master + '/' + b.wordCount + '（' + st.pct + '%）</span></div>'
@@ -489,8 +496,11 @@ async function openSide() {
         : (b.kind === 'cet' ? '四六级词书 · 带音标释义'
         : (b.kind === 'cefr' ? 'CEFR 分级 · 副词书（辅助）' : '副词书 · 参与者'));
       const acts = '<div style="margin-top:6px;display:flex;gap:6px">'
-        + (b.primary ? '' : '<button class="ghost bk-set" data-id="' + b.id + '">设为主词书</button>')
-        + (b.removable ? '<button class="ghost bk-del" data-id="' + b.id + '">删除</button>' : '')
+        + (b.hidden
+            ? '<button class="ghost bk-restore" data-id="' + b.id + '">恢复使用</button>'
+            : ((b.primary ? '' : '<button class="ghost bk-set" data-id="' + b.id + '">设为主词书</button>')
+               + (b.removable ? '<button class="ghost bk-del" data-id="' + b.id + '">删除</button>'
+                               : '<button class="ghost bk-hide" data-id="' + b.id + '">停用</button>')))
         + '</div>';
       return '<div class="book-card" data-id="' + b.id + '">'
         + '<div><div class="book-card-name">' + esc(b.name) + (b.primary ? '  ★' : '') + '</div>'
@@ -501,7 +511,18 @@ async function openSide() {
       + '<div class="learn-entry" id="addBook">' + icon('plus') + ' 添加词书（PDF / JSON / 文本）</div>'
       + '<div class="book-hint">支持 PDF 词汇手册 · JSON 词书 · 纯文本词表（每行一个词，制表符/多空格/冒号分隔释义）；文件名即词书名</div>'
       + '<div class="side-sec">词书库（点击翻看 · ★ = 主词书 · 词条可点右侧徽标切换掌握状态）</div>'
-      + (cards || '无可用的词书');
+      + (cards || '无可用的词书')
+      + ((j.books || []).filter(b => b.hidden).length
+          ? '<div class="side-sec">已停用（点击「恢复使用」可还原）</div>'
+            + (j.books || []).filter(b => b.hidden).map(b => {
+                const st = memStats(b.wordCount);
+                return '<div class="book-card" data-id="' + b.id + '">'
+                  + '<div><div class="book-card-name">' + esc(b.name) + '</div>'
+                  + '<div class="book-card-meta">已停用 · ' + b.wordCount + ' 词</div>'
+                  + '<div style="margin-top:6px;display:flex;gap:6px"><button class="ghost bk-restore" data-id="' + b.id + '">恢复使用</button></div>'
+                  + '</div></div>';
+              }).join('')
+          : '');
     box.querySelectorAll('.book-card').forEach(card => card.addEventListener('click', e => {
       if (e.target.closest && e.target.closest('.book-card-acts')) return;
       enterBook(card.dataset.id);
@@ -512,9 +533,13 @@ async function openSide() {
       e.stopPropagation();
       try { await setPrimaryBook(btn.dataset.id); } catch (err) { showStatus(err.message, true); }
     }));
-    box.querySelectorAll('.bk-del').forEach(btn => btn.addEventListener('click', async e => {
+    box.querySelectorAll('.bk-del, .bk-hide').forEach(btn => btn.addEventListener('click', async e => {
       e.stopPropagation();
       try { await deleteBook(btn.dataset.id); } catch (err) { showStatus(err.message, true); }
+    }));
+    box.querySelectorAll('.bk-restore').forEach(btn => btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      try { await restoreBook(btn.dataset.id); } catch (err) { showStatus(err.message, true); }
     }));
     const le = document.getElementById('learnEntry');
     if (le) le.addEventListener('click', showLearningView);  } catch (e) { pick.innerHTML = '加载失败: ' + esc(e.message); }
