@@ -1053,8 +1053,13 @@ function ensureOcr() {
       if (w) { clearTimeout(w.timer); w.resolve(msg); }
     }
   });
-  ocrProc.on('exit', () => { ocrProc = null; for (const w of ocrWaiters) { clearTimeout(w.timer); w.resolve(null); } ocrWaiters = []; });
-  ocrProc.on('error', () => { ocrProc = null; });
+  let localErr = '';
+  ocrProc.stderr.on('data', c => { localErr = (localErr + c.toString()).slice(-1500); });   // 必须持续读走: 否则管道写满会阻塞 worker, 且错误现场全丢
+  ocrProc.on('exit', code => {
+    if (localErr) console.error('[ocr] worker 退出 code=' + code + ' | ' + localErr.replace(/\s+/g, ' ').slice(-400));
+    ocrProc = null; for (const w of ocrWaiters) { clearTimeout(w.timer); w.resolve(null); } ocrWaiters = [];
+  });
+  ocrProc.on('error', e => { console.error('[ocr] worker 启动失败: ' + (e && e.message)); ocrProc = null; });
   ocrKickIdle();
 }
 // 图片预处理: EXIF转正 + 降采样(长边≤1400) + JPEG + 竖长图切半
@@ -1102,16 +1107,18 @@ async function visionReadFiles(files) {
       const b64 = fs.readFileSync(f).toString('base64');
       const r = await fetch(`${LLAMA_URL}/v1/chat/completions`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // 注意: 指令必须走 system 角色。写成 user 里的文本片段会让 Gemma 在这类页面上复读
+        // (实测同一张切片: user-片段写法 14924 字/28s 复读; system 写法 674 字/5.8s 正常)
         body: JSON.stringify({ model: 'gemma', stream: false, max_tokens: 3500, temperature: 0,
-          chat_template_kwargs: { enable_thinking: false },
-          messages: [{ role: 'user', content: [{ type: 'text', text: sys }, { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }] }] })
+          messages: [{ role: 'system', content: sys },
+            { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }, { type: 'text', text: '转录图中全部英文正文' }] }] })
       });
-      if (!r.ok) return null;
+      if (!r.ok) { console.error('[vision] 引擎 HTTP ' + r.status + ', 跳过该片'); continue; }
       const d = await r.json();
       const c = (d.choices?.[0]?.message?.content || '').trim();
-      if (!c || isGarbled(c)) return null;
+      if (!c || isGarbled(c)) { console.error('[vision] 该片无有效文本(' + (c ? c.length + '字' : '空') + '), 跳过'); continue; }
       parts.push(c);
-    } catch (e) { return null; }
+    } catch (e) { console.error('[vision] 该片异常: ' + (e && e.message) + ', 跳过'); continue; }
   }
   return parts.length ? parts.join('\n') : null;
 }
@@ -1454,8 +1461,9 @@ const server = http.createServer(async (req, res) => {
                   if (rec) text = rec;
                 } else { text = parts; scanEngine = 'vision'; }
               } else {
-                // 纯正文页(无选项): 允许重复、优先保全 — 只做保守乱码行过滤(不删疑似内容/不去重)
+                // 纯正文页(无选项): 保守乱码行过滤 + 复读去重(模型偶发循环时保命)
                 parts = removeJunkLines(parts);
+                try { const dd = dedupeLines(parts); if (dd && dd.trim().length >= 40) parts = dd; } catch (e) {}
                 text = parts; scanEngine = 'vision';
                 // 定版规则(2026-09-07 23:40): OCR(v5)恒为基底(确定性完整), 不跟视觉比长度掷骰子
                 // 视觉文本仅当 OCR 明显更短/更弱时才保留(OCR<300 或 OCR 不到视觉 85% 且 <1500)
