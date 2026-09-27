@@ -83,8 +83,15 @@ function writeSettings(patchObj) {
 const BOOKS = new Map(); // id -> 记录
 let PRIMARY_ID = '';
 function slugId(s) {
-  const t = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return t || '';
+  let t = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!t) {
+      // 纯中文等非 ASCII 名称: 用名称散列生成稳定的 ASCII id (如 book-1a2b3c)
+      let h = 5381;
+      const raw = String(s || 'book');
+      for (let i = 0; i < raw.length; i++) h = ((h * 33) ^ raw.charCodeAt(i)) >>> 0;
+      t = 'book-' + h.toString(36);
+    }
+    return t;
 }
 function inferKind(book, fallback) {
   if (book && book.kind) return book.kind;
