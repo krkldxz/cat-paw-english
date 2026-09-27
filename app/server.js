@@ -1,4 +1,4 @@
-﻿// 英语背诵工具 - 本地后端 v1
+// 英语背诵工具 - 本地后端 v1
 // 零依赖 Node: 静态托管 + /api/extract (文本 → gemma4 五板块提取)
 // 启动: node server.js  →  http://127.0.0.1:8804
 const http = require('http');

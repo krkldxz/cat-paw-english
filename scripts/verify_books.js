@@ -1,4 +1,4 @@
-﻿// verify_books.js —— 词书系统端到端验证 (添加词书 / 切换主词书 / 浏览 / 删除)
+// verify_books.js —— 词书系统端到端验证 (添加词书 / 切换主词书 / 浏览 / 删除)
 const B = 'http://127.0.0.1:8804';
 const j = async (u, o) => {
   const r = await fetch(B + u, o);

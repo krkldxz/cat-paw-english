@@ -1,4 +1,4 @@
-﻿# 模型下载脚本 —— 自动取回本软件需要的两个 GGUF 文件
+# 模型下载脚本 —— 自动取回本软件需要的两个 GGUF 文件
 # 用法:
 #   powershell -ExecutionPolicy Bypass -File tools\fetch-models.ps1          # 下载(断点续传)
 #   powershell -ExecutionPolicy Bypass -File tools\fetch-models.ps1 -Check    # 只校验已有文件

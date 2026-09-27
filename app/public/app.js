@@ -499,7 +499,7 @@ async function openSide() {
         + (b.hidden
             ? '<button class="ghost bk-restore" data-id="' + b.id + '">恢复使用</button>'
             : ((b.primary ? '' : '<button class="ghost bk-set" data-id="' + b.id + '">设为主词书</button>')
-               + (b.removable ? '<button class="ghost bk-del" data-id="' + b.id + '">删除</button>'
+               + (b.removable ? '<button class="ghost bk-del" data-id="' + b.id + '">🗑 删除</button>'
                                : '<button class="ghost bk-hide" data-id="' + b.id + '">停用</button>')))
         + '</div>';
       return '<div class="book-card" data-id="' + b.id + '">'

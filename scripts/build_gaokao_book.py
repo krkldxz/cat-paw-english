@@ -1,4 +1,4 @@
-﻿# 聚合高考/中考词书: moread-content 词表(主, MIT) LEFT JOIN ECDICT(音标/释义/词性/词频标签, MIT)
+# 聚合高考/中考词书: moread-content 词表(主, MIT) LEFT JOIN ECDICT(音标/释义/词性/词频标签, MIT)
 # 用途: 替代版权不明的官方考纲词书作为默认词书 —— 两份来源均为 MIT, 可随仓库分发
 # 来源: tealun/moread-content vocabulary/exam/gaokao.json (3837 词) / zhongkao.json
 # 交叉校验: 与 ECDICT 自带 gk/zk 考试标签比对重合率

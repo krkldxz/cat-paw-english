@@ -1,4 +1,4 @@
-﻿# llama.cpp 引擎下载脚本 (Windows) —— 取回本软件使用的本地推理引擎
+# llama.cpp 引擎下载脚本 (Windows) —— 取回本软件使用的本地推理引擎
 # 用法:
 #   powershell -ExecutionPolicy Bypass -File tools\fetch-engine.ps1                 # CUDA 版 (NVIDIA 显卡, 推荐)
 #   powershell -ExecutionPolicy Bypass -File tools\fetch-engine.ps1 -Flavor cpu     # 纯 CPU 版 (无显卡/体积小)
