@@ -24,20 +24,30 @@ class Launcher
         foreach (var p in new[] { llama, model, node, server })
             if (!File.Exists(p)) { Console.WriteLine("[错误] 缺少文件: " + p); Console.WriteLine("请保持文件夹完整, 按任意键退出"); Console.ReadKey(); return 1; }
 
-        // 已有实例在跑? 直接开页面
-        if (PortOpen(8804))
+        // 已有实例在跑? 必须两个端口都在才算健康
+        // (旧版只看 8804: 网页活着+引擎死了时会直接开页面返回, 引擎永远没人重启 → "引擎离线")
+        bool webUp = PortOpen(8804);
+        if (webUp && PortOpen(8080))
         {
             Console.WriteLine("[提示] 检测到工具已在运行, 直接打开页面");
             OpenStandalone("http://127.0.0.1:8804");
             Console.WriteLine("关闭此窗口不会结束已在运行的实例。按任意键退出本窗口。");
             Console.ReadKey(); return 0;
         }
+        if (webUp) Console.WriteLine("[提示] 网页服务已在运行, 但推理引擎没起来 → 只补启动引擎");
 
         Console.WriteLine("[1/3] 启动 AI 推理引擎 (首次加载模型约 10-60 秒, 取决于内存/显卡)...");
         engine = RunHidden(llama, "-m \"" + model + "\" --mmproj \"" + mmproj + "\" --host 127.0.0.1 --port 8080 -ngl 99 -c 8192 --jinja", Path.GetDirectoryName(llama));
         bool triedCpu = false;
-        Console.WriteLine("[2/3] 启动网页服务...");
-        web = RunHidden(node, "\"" + server + "\"", Path.Combine(BASE, "app"));
+        if (!webUp)
+        {
+            Console.WriteLine("[2/3] 启动网页服务...");
+            web = RunHidden(node, "\"" + server + "\"", Path.Combine(BASE, "app"));
+        }
+        else
+        {
+            Console.WriteLine("[2/3] 网页服务已在运行, 跳过启动");
+        }
 
         Console.WriteLine("      等待引擎就绪 ", false);
         bool ok = false;
@@ -73,8 +83,9 @@ class Launcher
         {
             while (true)
             {
-                bool eDone = engine == null || engine.HasExited;
-                bool wDone = web == null || web.HasExited;
+                // 只盯我们自己拉起的进程; 网页是别人的实例时不参与判定
+                bool eDone = engine != null && engine.HasExited;
+                bool wDone = web != null && web.HasExited;
                 if (eDone || wDone) break;
                 Thread.Sleep(1000);
             }

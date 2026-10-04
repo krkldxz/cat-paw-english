@@ -76,7 +76,11 @@ class App : Form
     {
         try
         {
-            if (!PortAlive(8804))
+            // 健康判定必须看两个端口: 旧版只看 8804, 网页活着+引擎死了时会整段跳过,
+            // 引擎永远没人重启 → 界面报"引擎离线"(2026-09-27 实测复现)
+            bool webUp = PortAlive(8804);
+            bool engineUp = PortAlive(8080);
+            if (!webUp || !engineUp)
             {
                 string llama = Path.Combine(BASE, "app", "llama", "llama-server.exe");
                 string model = Path.Combine(BASE, "models", "gemma-4-E2B-it-Q4_K_M.gguf");
@@ -86,10 +90,21 @@ class App : Form
                 foreach (var p in new[] { llama, model, node, server })
                     if (!File.Exists(p)) { Fail("缺少文件: " + p + "\n请保持文件夹完整"); return; }
 
-                SetStatus("启动推理引擎…");
-                engine = Run(llama, "-m \"" + model + "\" --mmproj \"" + mmproj + "\" --host 127.0.0.1 --port 8080 -ngl 99 -c 8192 --jinja", Path.GetDirectoryName(llama));
-                web = Run(node, "\"" + server + "\"", Path.Combine(BASE, "app"));
-                spawned = true;
+                if (!engineUp)
+                {
+                    SetStatus("启动推理引擎…");
+                    engine = Run(llama, "-m \"" + model + "\" --mmproj \"" + mmproj + "\" --host 127.0.0.1 --port 8080 -ngl 99 -c 8192 --jinja", Path.GetDirectoryName(llama));
+                }
+                else SetStatus("推理引擎已在运行, 跳过启动");
+
+                if (!webUp)
+                {
+                    web = Run(node, "\"" + server + "\"", Path.Combine(BASE, "app"));
+                }
+                else SetStatus("网页服务已在运行, 只补启动引擎…");
+
+                spawned = (engine != null || web != null);
+                if (engine == null && !engineUp) { Fail("无法启动推理引擎 (可能被杀毒软件拦截)。"); return; }
 
                 bool cpuTried = false;
                 for (int i = 0; i < 300; i++)
@@ -104,7 +119,7 @@ class App : Form
                     if (PortAlive(8080) && PortAlive(8804)) break;
                     if (i % 5 == 4) SetStatus("等待引擎就绪… (" + (i * 2) + "s)");
                 }
-                if (!PortAlive(8804)) { Fail("启动超时: 引擎或网页服务未就绪。\n可尝试关闭占显卡的程序后重试。"); return; }
+                if (!PortAlive(8804) || !PortAlive(8080)) { Fail("启动超时: 引擎或网页服务未就绪。\n可尝试关闭占显卡的程序后重试。"); return; }
             }
             ShowWeb();
         }

@@ -995,7 +995,11 @@ function findPy() {
   }
   const bundled = path.join(__dirname, '..', 'runtime', 'python', 'python.exe');
   if (fs.existsSync(bundled)) {
-    process.env.PADDLE_PDX_CACHE_HOME = path.join(__dirname, '..', 'runtime', 'python', '.paddlex');
+    // Paddle 的 C++ 推理层打不开非 ASCII 路径: 分发包目录名"英语背诵工具"会让它报
+    // Cannot open file ...\PP-OCRv5_mobile_det\inference.json(文件其实在) → OCR worker 每次秒崩
+    // 缓存固定放到纯 ASCII 目录 (2026-09-27 实测 A/B: ASCII 路径 INIT_OK / 中文路径 INIT_FAIL)
+    process.env.PADDLE_PDX_CACHE_HOME = path.join(
+      process.env.LOCALAPPDATA || require('os').tmpdir(), 'english-study', 'paddlex');
     console.log('[可移植] 使用内嵌 Python: 照片OCR/文档解析全功能在线');
     return bundled;
   }
@@ -1418,7 +1422,10 @@ const server = http.createServer(async (req, res) => {
         // ASCII 安全文件名(中文名会导致 OpenCV/llama 读图失败)
       const safeExt = path.extname(name).toLowerCase() || '.img';
       let fpath = path.join(tmpDir, 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + safeExt);
-        fs.writeFileSync(fpath, Buffer.from(data, 'base64'));
+        // 前端传的是整个 Data URL(data:image/jpeg;base64,...): Node 的 base64 解码会静默忽略 ':' ';' ','
+        // 却把 data/image/jpeg/base64 这些字母当内容解出来 → 每张图被塞 15 字节垃圾头, PIL/llama 都判"不是图片"
+        // 必须先剥掉头部 (2026-09-27 实测: 49626B 干净 JPEG 落盘变 49641B, SOI 被顶到偏移 15)
+        fs.writeFileSync(fpath, Buffer.from(String(data).replace(/^data:[^;]*;base64,/, ''), 'base64'));
         const PY = PY_RESOLVED;
         if (!PY) throw new Error('此电脑未安装 Python, PDF/Word/照片OCR 功能不可用 (文本粘贴与视觉识别不受影响)');
         const SCRIPTS = path.join(__dirname, '..', 'scripts');

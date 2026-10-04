@@ -3,6 +3,13 @@
 # 协议不变: 常驻 stdin/stdout JSON 行 {img,id} → {text,options,body,n,id} / {error}; 单图 CLI 模式保留
 import sys, json, re
 sys.stdout.reconfigure(encoding='utf-8')
+# stdin 也必须钉成 UTF-8: 分发包目录名含中文时, stdin 默认按系统码页(cp936)解码,
+# JSON 里的中文图片路径会变成乱码 → PIL 报 Errno 22 Invalid argument(OCR 永远无输出)。
+# 2026-09-27 实测: 中文目录下 app 走的正是 stdin 协议, CLI(argv) 路径不受影响
+try:
+    sys.stdin.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 from PIL import Image, ImageOps
 
 # 引擎: Paddle v5-mobile det + 英文专用 rec (纯能力评测确认版)
