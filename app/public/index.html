@@ -111,7 +111,8 @@
         <h3><i class="ic" data-ic="eye"></i>候选词自评 <span class="count" id="candCount"></span></h3>
         <label class="ext-toggle"><input type="checkbox" id="extToggle" checked> 显示拓展词（超纲）</label>
       <div class="cand-note">候选词（已结合原文语境，含所勾选词书命中词 + 拓展词）。<b>认识的选「认识」，不认识的选「不认识」</b>（选择后显示词义，可随时改），最后点确认生成背诵清单。</div>
-        <table class="cand-table"><thead><tr><th>词</th><th>级别</th><th>归属</th><th>原文语境</th><th>自评</th><th>词义</th></tr></thead><tbody id="candBody"></tbody></table>
+        <table class="cand-table"><thead><tr><th>词</th><th>级别</th><th>归属</th><th>原文语境</th><th>自评</th><th>词义</th></tr></thead><tbody id="candBody"></tbody>
+          <tfoot><tr class="cand-rest-row"><td colspan="4"></td><td class="cand-judge"><button id="candRest" class="jbtn rest" type="button">其余认识</button></td><td></td></tr></tfoot></table>
         <div id="candFolded" class="cand-folded hidden">
           <div class="folded-head"><span id="foldTitle"></span><button id="foldToggle" class="ghost">展开</button></div>
           <div id="foldBody" class="hidden"></div>

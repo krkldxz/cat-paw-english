@@ -27,7 +27,7 @@ function showStatus(msg, isError) {
   status.className = 'status' + (isError ? ' error' : '');
 }
 
-let lastData = null, lastExtras = null, cands = [], candState = {}, foldOpen = false;
+let lastData = null, lastExtras = null, cands = [], candState = {}, foldOpen = false, bulkKnown = new Set();
 let showExt = true;
 const kw = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -208,6 +208,7 @@ async function extract() {
     cands = j.candidates || [];
     candState = {};
     foldOpen = false;
+    bulkKnown = new Set();
     $('#card-vocab').classList.add('hidden');
     renderExtras(lastExtras);
     if (cands.length) { renderCandidates(); result.classList.remove('hidden'); showStatus('✅ 提取完成 — 请自评候选词'); }
@@ -282,6 +283,46 @@ function updateCandStats() {
   }
   $('#candStats').innerHTML = `<b class="n-count">${icon('x')} 将进入背诵清单：${n}</b> · ${icon('check')} 认识：${y} · 待定：${p}`;
   $('#candConfirm').innerHTML = icon('circle-check') + ' ' + (n ? `确认生成背诵清单（${n} 个生词）` : '确认生成背诵清单（无生词）');
+  updateRestBtn();
+}
+
+// 「其余认识」: 把主表里还没选的词一键标为「认识」；再点一次可撤销
+function updateRestBtn() {
+  const btn = $('#candRest'); if (!btn) return;
+  const rows = visibleCands().filter(c => !isKnownWord(c));
+  const pending = rows.filter(c => !candState[kw(c.word)]).length;
+  const undo = rows.filter(c => candState[kw(c.word)] === 1 && bulkKnown.has(kw(c.word))).length;
+  if (pending) {
+    btn.disabled = false; btn.classList.remove('undo');
+    btn.innerHTML = `${icon('check')} 其余认识（${pending}）`;
+    btn.title = `把剩下 ${pending} 个待定词全部标为「认识」`;
+  } else if (undo) {
+    btn.disabled = false; btn.classList.add('undo');
+    btn.innerHTML = `${icon('x')} 撤销「其余认识」（${undo}）`;
+    btn.title = '撤销刚才一键标记的「认识」';
+  } else {
+    btn.disabled = true; btn.classList.remove('undo');
+    btn.innerHTML = '其余认识';
+    btn.title = '当前没有待定的候选词';
+  }
+}
+
+function markRestKnown() {
+  const rows = visibleCands().filter(c => !isKnownWord(c));
+  const pending = rows.filter(c => !candState[kw(c.word)]);
+  if (pending.length) {
+    bulkKnown = new Set(pending.map(c => kw(c.word)));
+    for (const c of pending) candState[kw(c.word)] = 1;
+    renderCandidates();
+    showStatus(`✅ 已把其余 ${pending.length} 个词标为「认识」（可再点一次撤销）`);
+    return;
+  }
+  const undo = rows.filter(c => candState[kw(c.word)] === 1 && bulkKnown.has(kw(c.word)));
+  if (!undo.length) return;
+  for (const c of undo) delete candState[kw(c.word)];
+  bulkKnown = new Set();
+  renderCandidates();
+  showStatus(`↩️ 已撤销「其余认识」（${undo.length} 个）`);
 }
 
 function setCand(i, v) {
@@ -972,6 +1013,7 @@ $('#foldBody').addEventListener('click', e => {
   const b = e.target.closest('.jbtn');
   if (b) { const tr = b.closest('.cand-row'); if (tr) setCand(Number(tr.dataset.i), Number(b.dataset.v)); }
 });
+$('#candRest').addEventListener('click', markRestKnown);
 $('#foldToggle').addEventListener('click', () => { foldOpen = !foldOpen; renderCandidates(); });
 $('#candConfirm').addEventListener('click', confirmList);
 $('#extToggle').addEventListener('change', e => { showExt = e.target.checked; renderCandidates(); });
@@ -1834,9 +1876,11 @@ function renderRead() {
     '<div class="rd-row"><span class="rd-lv">' + icon('sparkles') + ' 理解难度 <select id="rdLv">' + Object.entries(RD_LV).map(x => '<option value="' + x[0] + '"' + (x[0] === lv ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select><span class="rd-hint" style="margin:0">默认随年级</span></span></div>' +
     '<div class="rd-row">' +
     '<button class="rd-btn primary" id="rdGo">' + icon('languages') + '生成英文文本</button>' +
-    '<button class="rd-btn" id="rdExtract"' + (rd.out ? '' : ' disabled') + '>' + icon('sparkles') + '一键提炼背诵清单</button>' +
-    '<button class="rd-btn" id="rdQuiz"' + (rd.out ? '' : ' disabled') + '>' + icon('file-question') + '一键生成理解题</button>' +
+    // 不再用 disabled: 禁用按钮连 click 都不触发 → 用户点下去毫无反馈, 以为功能坏了 (2026-09-28)
+    '<button class="rd-btn" id="rdExtract"' + (rd.out ? '' : ' style="opacity:.55"') + ' title="' + (rd.out ? '把生成的英文提炼成背诵清单' : '会先自动按水平生成英文，再提炼') + '">' + icon('sparkles') + '一键提炼背诵清单</button>' +
+    '<button class="rd-btn" id="rdQuiz"' + (rd.out ? '' : ' style="opacity:.55"') + ' title="' + (rd.out ? '就生成的英文出理解题' : '会先自动按水平生成英文，再出题') + '">' + icon('file-question') + '一键生成理解题</button>' +
     '</div>' +
+    '<div class="rd-hint" style="opacity:.45;font-size:11px;margin-top:6px">界面 2026-09-28 （看到这行 = 已加载新版界面；刷新请关掉本窗口重新打开，Ctrl+R 在本窗口被禁用）</div>' +
     (rd.out ? '<div class="rd-out" id="rdOut"></div>' : '') +
     '<div id="rdZone"></div>';
   b.querySelector('#rdText').addEventListener('input', e => { rd.text = e.target.value; });
@@ -1886,26 +1930,38 @@ document.addEventListener('click', e => {
 });
 async function rdTranslate() {
   const t = (rd.text || '').trim();
-  if (!t) { rdToast('先粘贴或识别一些内容'); return; }
-  rdBusy(true, 'AI 按 ' + rd.level + ' 水平生成英文…');
+  if (!t) { rdToast('先粘贴或识别一些内容'); return false; }
+  rdBusy(true, 'AI 按 ' + (rd.level || rdGradeLevel()) + ' 水平生成英文…');
   try {
     const j = await (await fetch('/api/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'translate', text: t, level: rd.level || rdGradeLevel() }) })).json();
     if (!j.ok) throw new Error(j.error || '失败');
     rd.out = j.result; rd.level = j.level;
     renderRead();
     rdToast('已生成 ' + j.level + ' 级英文 · ' + j.timeMs + 'ms');
-  } catch (e) { rdToast('生成失败: ' + e.message); }
-  rdBusy(false);
+    return true;
+  } catch (e) { rdToast('生成失败: ' + e.message); return false; }
+  finally { rdBusy(false); }
+}
+// 缺前置时自动补上"按水平生成", 而不是静默什么都不做
+async function rdEnsureOut() {
+  if (rd.out) return true;
+  if (!(rd.text || '').trim()) { rdToast('先粘贴或上传一些素材'); return false; }
+  rdToast('先按水平生成英文，再继续…');
+  const ok = await rdTranslate();
+  return !!(ok && rd.out);
 }
 async function rdExtract() {
-  if (!rd.out) return;
+  if (!await rdEnsureOut()) return;
+  // 必须关掉即读即学浮层(.read-overlay 是 position:fixed/inset:0/z-index:70 的全屏不透明层)
+  // setView() 只切底下的 studyView, 不碰这个浮层 → 不关就"提炼在跑但屏幕一点没变" (2026-09-28 实测截图确认)
+  closeRead();
   setView('study');
   textInput.value = rd.out;
   showStatus(icon('hourglass') + ' 从即读文本提炼中…');
   extract();
 }
 async function rdQuiz() {
-  if (!rd.out) return;
+  if (!await rdEnsureOut()) return;
   const zone = document.getElementById('rdZone');
   zone.innerHTML = '<div class="rd-busy">' + icon('hourglass') + ' AI 出题中…</div>';
   try {

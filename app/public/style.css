@@ -154,6 +154,10 @@ li.empty, td.empty { color: #bfab8d; font-style: italic; text-align: center; }
 .jbtn.y.on { background: #e3f4e8; border-color: #4caf50; color: #1e8e3e; font-weight: 700; }
 .jbtn.n.on { background: #ffe8e8; border-color: #e05a5a; color: #c62828; font-weight: 700; }
 .jbtn:hover { border-color: #f97316; }
+.jbtn.rest { background: #eef7ff; border-color: #bcd8f2; color: #1f6fb2; }
+.jbtn.rest.undo { background: #fff4e5; border-color: #f0c98a; color: #b45309; }
+.jbtn.rest:disabled { opacity: .4; cursor: not-allowed; background: #fff; border-color: #eee; color: #bbb; }
+.cand-rest-row td { border-bottom: none; padding-top: 12px; }
 .cand-meaning { color: #b45309; font-size: 14px; }
 .cand-meaning.dim { color: #d5c5aa; }
 .cefr-lvl { color: #7e57c2; font-weight: 700; font-size: 13px; }
