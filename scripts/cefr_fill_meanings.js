@@ -1,6 +1,7 @@
 // CEFR 词书批量补中文释义 v2: 断点续跑 + 容错解析 + 多轮重试
 const fs = require('fs');
-const PATH = 'C:/Users/krkld/.openclaw/projects/english-study/data/词书-CEFR.json';
+const path = require('path');
+const PATH = path.join(__dirname, '..', 'data', '词书-CEFR.json');
 const ENGINE = 'http://127.0.0.1:8080/v1/chat/completions';
 const BATCH = 50, MAX_PASS = 4;
 const book = JSON.parse(fs.readFileSync(PATH, 'utf8'));

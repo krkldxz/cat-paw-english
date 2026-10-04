@@ -36,7 +36,7 @@ function ck(name, cond, extra) {
   ck('列表 primary 反映切换', r.body.primary === 'gk' && (r.body.books || []).filter(b => b.primary).length === 1);
   ck('可删标记只给用户词书', (r.body.books || []).filter(b => b.removable).length === 0);
   let st = null;
-  try { st = JSON.parse(require('fs').readFileSync('C:\\Users\\krkld\\.openclaw\\projects\\english-study\\data\\settings.json', 'utf8')); } catch (e) {}
+  try { st = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'data', 'settings.json'), 'utf8')); } catch (e) {}
   ck('settings.json 落盘', !!st && st.primaryBook === 'gk', JSON.stringify(st));
 
   console.log('== 4. 添加词书 (纯文本词表) ==');

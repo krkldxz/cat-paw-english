@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Continue'
 $py = Join-Path $PSScriptRoot 'tmp\python\python.exe'
 $env:PADDLE_PDX_CACHE_HOME = (Join-Path $PSScriptRoot 'tmp\python\.paddlex')
 $img = Join-Path $PSScriptRoot 'ocr_test.png'
-$script = 'C:\Users\krkld\.openclaw\projects\english-study\scripts\rapid_ocr.py'
+$script = Join-Path $PSScriptRoot '..\scripts\rapid_ocr.py'
 $t0 = Get-Date
 $out = Get-Content $img -Raw
 # rapid_ocr.py 是常驻 worker(stdin JSON 行), 单发一条 {"id":1,"img":path}

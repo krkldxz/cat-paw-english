@@ -22,6 +22,9 @@ build/英语背诵工具-一体化版.zip
 # Mac 壳里的整包副本 (含上海考纲词书等数据, 绝不入库)
 build/mac-shell/bundle/
 build/**/bundle/
+# Mac 壳的本地构建产物与云端测试报告 (构建可复现, 产物本身不入库)
+build/mac-shell/macapp/
+build/mac-shell/report/
 runtime/
 dist/
 *.zip
