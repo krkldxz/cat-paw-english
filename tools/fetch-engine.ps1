@@ -27,23 +27,20 @@ if (Test-Path $ServerExe) {
 }
 if ($Check) { Write-Host "[MISS] 引擎未就绪: 缺少 app\llama\llama-server.exe"; exit 1 }
 
-Write-Host "==== 查询 llama.cpp 最新 release ===="
-$rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest' -Headers @{ 'User-Agent' = 'english-study-fetch' }
-Write-Host "  版本: $($rel.tag_name)  ($($rel.published_at.Substring(0,10)))"
-
-# 按 flavor 挑资产 (不写死 build 号, 从 release 元数据里发现)
-$pat = if ($Flavor -eq 'cuda') { 'llama-b.*-bin-win-cuda-12\.4-x64\.zip$' } else { 'llama-b.*-bin-win-cpu-x64\.zip$' }
-$main = $rel.assets | Where-Object { $_.name -match $pat } | Select-Object -First 1
-if (!$main) {
-  Write-Host "  未找到匹配资产 ($Flavor)。该 release 可用资产:"
-  $rel.assets | Where-Object { $_.name -match 'win' } | ForEach-Object { Write-Host "    $($_.name)" }
-  exit 1
-}
-$assets = @($main)
+# ---- 钉死版本, 不再查 GitHub API (2026-10-07 改) ----
+# 原因: api.github.com 在国内常被墙, 而这一步没有镜像回退 -> 单点故障会让整个引擎下载失败。
+#       实测: 模型走 hf-mirror 能下完, 引擎却卡在这一行; 加上脚本开头 $ErrorActionPreference='Stop',
+#       一挂就整体退出, 后面所有下载代码都不会执行。
+# 升级方法: 只需改下面的 $Tag 即可 (b10621 = 与 mac 构建工作流同一版本)。
+$Tag  = 'b10621'
+$base = "https://github.com/ggml-org/llama.cpp/releases/download/$Tag"
+$mainName = if ($Flavor -eq 'cuda') { "llama-$Tag-bin-win-cuda-12.4-x64.zip" } else { "llama-$Tag-bin-win-cpu-x64.zip" }
+Write-Host "==== 引擎版本 (已钉死, 不查 API): $Tag ===="
+$assets = @([pscustomobject]@{ name = $mainName; browser_download_url = "$base/$mainName" })
 if ($Flavor -eq 'cuda') {
   # CUDA 构建需要配套运行库 (cublas/cudart DLL), 官方单列一个 zip
-  $rt = $rel.assets | Where-Object { $_.name -match '^cudart-llama-bin-win-cuda-12\.4-x64\.zip$' } | Select-Object -First 1
-  if ($rt) { $assets += $rt } else { Write-Host "  [WARN] 未找到 cudart 运行库资产, 若启动报 DLL 缺失请手动补" }
+  $rtName = 'cudart-llama-bin-win-cuda-12.4-x64.zip'
+  $assets += [pscustomobject]@{ name = $rtName; browser_download_url = "$base/$rtName" }
 }
 
 if (!(Test-Path $Engine)) { New-Item -ItemType Directory -Path $Engine | Out-Null }

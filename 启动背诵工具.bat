@@ -15,6 +15,7 @@ set ENGINE=%APP%\llama\llama-server.exe
 echo ============================================
 echo   英语背诵与学习软件 (cat paw)
 echo   目录: %BASE%
+echo   启动器 v1.0.2
 echo ============================================
 echo.
 
@@ -34,6 +35,14 @@ set HAVE_AI=1
 if not exist "%ENGINE%" set HAVE_AI=0
 if not exist "%MODEL%"  set HAVE_AI=0
 if not exist "%MMPROJ%" set HAVE_AI=0
+rem ---- 组件明细: 缺哪个一眼可见 (2026-10-07 加) ----
+set E_TXT=就绪
+if not exist "%ENGINE%" set E_TXT=缺失
+set M_TXT=就绪
+if not exist "%MODEL%"  set M_TXT=缺失
+set P_TXT=就绪
+if not exist "%MMPROJ%" set P_TXT=缺失
+echo [环境] 推理引擎: !E_TXT!   主模型: !M_TXT!   视觉模块: !P_TXT!
 
 if "%HAVE_AI%"=="0" (
   echo [提示] 未检测到 AI 模型与推理引擎 ^(约 5.2 GB^)
