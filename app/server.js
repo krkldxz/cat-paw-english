@@ -1148,6 +1148,7 @@ async function cleanupVisionText(raw) {
 // 超时 90s: v5 引擎冷启动(paddle 导入+模型加载)约 20-40s, 原 25s 会误杀 (2026-09-07)
 function ocrFast(imgPath, timeoutMs = 90000) {
   return new Promise(resolve => {
+    if (!PY_RESOLVED) return resolve(null);   // 无 Python: 直接返回 null, 不 spawn (2026-10-07 加)
     ensureOcr();
     if (!ocrProc) return resolve(null);
     const id = ++ocrId;
@@ -1427,7 +1428,9 @@ const server = http.createServer(async (req, res) => {
         // 必须先剥掉头部 (2026-09-27 实测: 49626B 干净 JPEG 落盘变 49641B, SOI 被顶到偏移 15)
         fs.writeFileSync(fpath, Buffer.from(String(data).replace(/^data:[^;]*;base64,/, ''), 'base64'));
         const PY = PY_RESOLVED;
-        if (!PY) throw new Error('此电脑未安装 Python, PDF/Word/照片OCR 功能不可用 (文本粘贴与视觉识别不受影响)');
+        // 注意: 这里不再"没 Python 就整体拦掉" (2026-10-07 修)。
+        // 照片识别主路径走视觉模型, 本不需要 Python; 原写法拦在入口, 让视觉路径永远执行不到。
+        // 现在改为在每个真正需要 Python 的分支里单独判断, 并给出对应提示。
         const SCRIPTS = path.join(__dirname, '..', 'scripts');
         const runPy = args => new Promise((ok, no) => {
           require('child_process').execFile(PY, args, { encoding: 'utf8', maxBuffer: 20e6, timeout: 120000 }, (e, so) => e ? no(new Error((so || e.message).slice(0, 300))) : ok(so));
@@ -1435,6 +1438,7 @@ const server = http.createServer(async (req, res) => {
         let text = null, scan = false, scanEngine = 'ocr';
         const imgExts = ['.png', '.jpg', '.jpeg', '.webp', '.bmp'];
         if (ext === '.pdf' || ext === '.docx' || ext === '.txt') {
+          if (!PY) throw new Error('本机未找到 Python，PDF/Word 解析不可用（可改用文本粘贴；安装 Python 3 后即可用）');
           const out = await runPy([path.join(SCRIPTS, 'extract_text.py'), fpath]);
           const j = JSON.parse(out);
           if (j.type === 'scan') scan = true; else text = j.text;
@@ -1489,11 +1493,13 @@ const server = http.createServer(async (req, res) => {
               else throw new Error('图片识别失败: OCR与视觉均无有效输出');
             }
           } else {
-            // 引擎离线 → RapidOCR
+            // 引擎离线 → RapidOCR (没有 Python 时 ocrFast 直接返回 null, 不 spawn)
             const ocrR = await ocrFast(ocrSrc);
             if (ocrR && ocrR.text && ocrR.text.trim().length >= 20) { text = ocrR.text; scanEngine = 'ocr'; }
             else if (ocrR && ocrR.text) { text = ocrR.text; scanEngine = 'ocr(lowQ)'; }
-            else throw new Error('图片识别失败(引擎离线且OCR无输出)');
+            else throw new Error(PY
+              ? '图片识别失败(引擎离线且OCR无输出)'
+              : '照片识别需要 AI 模型或 Python：当前两者都不可用。请先下载 AI 模型（启动时选 [1]，约 5.2 GB），或安装 Python 3。');
           }
         } else {
           res.writeHead(415, { 'Content-Type': 'application/json' });
