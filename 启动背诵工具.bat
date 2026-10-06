@@ -48,20 +48,32 @@ if "%HAVE_AI%"=="0" (
   set /p CHOICE=请输入 1 或 2 或 3 后回车:
   if "!CHOICE!"=="1" (
     echo.
-    echo [下载 1/2] 推理引擎 llama.cpp ...
-    powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-engine.ps1"
-    echo [下载 2/2] 模型权重 ^(约 3.9 GB^) ...
-    powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-models.ps1"
-    set HAVE_AI=1
-    if not exist "%ENGINE%" set HAVE_AI=0
-    if not exist "%MODEL%"  set HAVE_AI=0
-    if not exist "%MMPROJ%" set HAVE_AI=0
-    if "!HAVE_AI!"=="1" (
-      echo [下载] 完成, 继续启动。
-    ) else (
-      echo [提示] 仍有文件缺失^(可能是网络中断^)。稍后可重跑:
-      echo          powershell -ExecutionPolicy Bypass -File tools\fetch-models.ps1
+    set PSMISS=0
+    if not exist "%BASE%\tools\fetch-engine.ps1" set PSMISS=1
+    if not exist "%BASE%\tools\fetch-models.ps1" set PSMISS=1
+    if "!PSMISS!"=="1" (
+      echo [错误] 缺少下载脚本, 无法自动下载 AI 组件:
+      echo          tools\fetch-engine.ps1
+      echo          tools\fetch-models.ps1
+      echo        多半是解压不完整, 或被杀毒软件删除。
+      echo        请重新完整解压后再试^(注意: 别在压缩软件预览窗口里直接运行^)。
       echo        现以"最小版"启动。
+    ) else (
+      echo [下载 1/2] 推理引擎 llama.cpp ...
+      powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-engine.ps1"
+      echo [下载 2/2] 模型权重 ^(约 3.9 GB^) ...
+      powershell -ExecutionPolicy Bypass -File "%BASE%\tools\fetch-models.ps1"
+      set HAVE_AI=1
+      if not exist "%ENGINE%" set HAVE_AI=0
+      if not exist "%MODEL%"  set HAVE_AI=0
+      if not exist "%MMPROJ%" set HAVE_AI=0
+      if "!HAVE_AI!"=="1" (
+        echo [下载] 完成, 继续启动。
+      ) else (
+        echo [提示] 仍有文件缺失^(可能是网络中断^)。稍后可重跑:
+        echo          powershell -ExecutionPolicy Bypass -File tools\fetch-models.ps1
+        echo        现以"最小版"启动。
+      )
     )
     echo.
   )
@@ -109,15 +121,45 @@ rem ---------- 2. 网页服务 (8804) ----------
 netstat -ano | findstr ":8804 " | findstr "LISTENING" >nul
 if errorlevel 1 (
   echo [网页] 启动本地服务 http://127.0.0.1:8804
-  start "english-study-8804" /min cmd /c "cd /d "%APP%" && node server.js"
-  timeout /t 2 /nobreak >nul
+  start "english-study-8804" /min /d "%APP%" cmd /c "node server.js"
 ) else (
   echo [网页] 8804 已在运行
 )
 
+rem ---- 关键: 必须等网页服务真的开始监听, 再开浏览器 (最多 30 秒) ----
+set /a WN=0
+:web_wait
+netstat -ano | findstr ":8804 " | findstr "LISTENING" >nul
+if not errorlevel 1 goto web_ready
+set /a WN+=1
+if !WN! gtr 30 goto web_fail
+ping -n 2 127.0.0.1 >nul 2>nul
+goto web_wait
+
+:web_ready
 start http://127.0.0.1:8804
 echo.
 echo [完成] 已打开: http://127.0.0.1:8804
 echo        停止: 关闭弹出的两个窗口^(引擎/服务^), 或在此按任意键退出本窗口。
 pause >nul
 endlocal
+exit /b 0
+
+:web_fail
+echo.
+echo [错误] 网页服务没有起来 ^(http://127.0.0.1:8804 拒绝连接^)。
+echo.
+echo   请按顺序排查:
+echo     1^) 你是不是在"压缩软件的临时目录"里直接运行的?
+echo        当前目录: %BASE%
+echo        若在 Temp / AweZip 之类目录下, 文件随时会被清掉。
+echo        请把整个文件夹**完整解压**到硬盘^(如 D:\cat-paw-english^)再双击本文件。
+echo     2^) 杀毒软件可能拦截或删除了文件。检查隔离区, 或把本文件夹加入白名单。
+echo     3^) 手动看真实报错: 打开 cmd 依次执行
+echo          cd /d "%APP%"
+echo          node server.js
+echo        把打印出来的错误发给作者。
+echo.
+pause
+endlocal
+exit /b 1
